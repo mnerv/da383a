@@ -12,10 +12,13 @@ extern "C" auto app_main() -> void;
 
 constexpr std::uint32_t FREQUENCY = 10'000;
 constexpr std::uint64_t US_ONE_S  = 1'000'000;
+constexpr auto PIN                = GPIO_NUM_13;
 
 static auto timer_callback(void *arg) -> void {
+    gpio_set_level(PIN, 1U);
     auto value = adc1_get_raw(ADC1_CHANNEL_0) / 16;
     dac_output_voltage(DAC_CHANNEL_1, uint8_t(value));
+    gpio_set_level(PIN, 0U);
 }
 
 auto app_main() -> void {
@@ -25,6 +28,13 @@ auto app_main() -> void {
     adc1_config_channel_atten(ADC1_CHANNEL_0, ADC_ATTEN_DB_11);
     gpio_pullup_en(GPIO_NUM_36);
     dac_output_enable(DAC_CHANNEL_1);
+
+    gpio_config_t config;
+    config.pin_bit_mask  = (uint64_t) 1 << PIN;
+    config.mode          = gpio_mode_t(GPIO_MODE_DEF_OUTPUT);
+    config.pull_down_en  = GPIO_PULLDOWN_ENABLE;
+    config.pull_up_en    = GPIO_PULLUP_DISABLE;
+    ESP_ERROR_CHECK(gpio_config(&config));
 
     esp_timer_create_args_t periodConfig{};
     periodConfig.callback = timer_callback;
