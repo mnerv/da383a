@@ -12,8 +12,9 @@
 extern "C" auto app_main() -> void;
 
 constexpr auto M = 9;
-static std::array<float, M + 1> b{0.1000, 0.1000, 0.1000, 0.1000, 0.1000, 0.1000, 0.1000, 0.1000, 0.1000, 0.1000};
-static std::array<float, M + 1> x{};
+//static std::array<float, M + 1> b{0.1000, 0.1000, 0.1000, 0.1000, 0.1000, 0.1000, 0.1000, 0.1000, 0.1000, 0.1000};
+static std::array<std::int32_t, M + 1> b{1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000};
+static std::array<std::int32_t, M + 1> x{};
 
 constexpr std::uint32_t FREQUENCY = 10'000;
 constexpr std::uint64_t US_ONE_S  = 1'000'000;
@@ -21,7 +22,7 @@ constexpr auto PIN                = GPIO_NUM_13;
 
 static auto timer_callback(void *arg) -> void {
     static auto k = 0;
-    x[0] = float(adc1_get_raw(ADC1_CHANNEL_0) / 16);
+    x[0] = adc1_get_raw(ADC1_CHANNEL_0) / 16;
     gpio_set_level(PIN, 1U);
     x[k++] = x[0];
     if (k == M + 1) k = 0;
@@ -32,7 +33,7 @@ static auto timer_callback(void *arg) -> void {
     }
 
     gpio_set_level(PIN, 0U);
-    dac_output_voltage(DAC_CHANNEL_1, uint8_t(sum));
+    dac_output_voltage(DAC_CHANNEL_1, uint8_t(sum / 10000));
 }
 
 auto app_main() -> void {
