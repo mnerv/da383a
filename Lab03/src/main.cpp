@@ -1,5 +1,6 @@
 #include <array>
 #include <cstdint>
+#include <queue>
 
 #include "esp_task_wdt.h"
 #include "driver/dac.h"
@@ -10,15 +11,25 @@
 
 extern "C" auto app_main() -> void;
 
-constexpr std::uint32_t FREQUENCY = 40'000;
+constexpr auto M = 2;
+static std::array<float, M + 1> b{0.3333, 0.3333, 0.3333};
+static std::array<float, M + 1> x{};
+
+constexpr std::uint32_t FREQUENCY = 10'000;
 constexpr std::uint64_t US_ONE_S  = 1'000'000;
 constexpr auto PIN                = GPIO_NUM_13;
-constexpr auto BUFFER_SIZE        = 40'000;
 
 static auto timer_callback(void *arg) -> void {
-    static std::uint16_t buffer[BUFFER_SIZE]{0};
-    auto value = adc1_get_raw(ADC1_CHANNEL_0) / 16;
-    dac_output_voltage(DAC_CHANNEL_1, uint8_t(value));
+    static auto k = 0;
+    x[0] = float(adc1_get_raw(ADC1_CHANNEL_0) / 16);
+    x[k++] = x[0];
+    if (k == M + 1) k = 0;
+
+    auto sum = 0.0f;
+    for (auto i = M; i >= 0; i--) {
+        sum += b[i] * x[i];
+    }
+    dac_output_voltage(DAC_CHANNEL_1, uint8_t(sum));
 }
 
 auto app_main() -> void {
@@ -32,13 +43,13 @@ auto app_main() -> void {
     gpio_config_t config;
     config.pin_bit_mask  = (uint64_t) 1 << PIN;
     config.mode          = gpio_mode_t(GPIO_MODE_DEF_OUTPUT);
-    config.pull_down_en  = GPIO_PULLDOWN_ENABLE;
-    config.pull_up_en    = GPIO_PULLUP_DISABLE;
+    config.pull_down_en  = GPIO_PULLDOWN_DISABLE;
+    config.pull_up_en    = GPIO_PULLUP_ENABLE;
     ESP_ERROR_CHECK(gpio_config(&config));
 
     esp_timer_create_args_t periodConfig{};
     periodConfig.callback = timer_callback;
-    periodConfig.name     = "periodic";
+    periodConfig.name     = "sample_callback";
 
     esp_timer_handle_t periodicHandle;
     ESP_ERROR_CHECK(esp_timer_create(&periodConfig, &periodicHandle));
