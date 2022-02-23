@@ -33,6 +33,9 @@ compile_commands.json
 ## Visual Studio Code
 .vscode
 
+## PlatformIO
+.pio
+
 # ┃ System Files
 # ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫ #
 
