@@ -43,7 +43,7 @@ static auto timer_callback(void *arg) -> void {
     static auto n = 0;
     auto value = float(adc1_get_raw(ADC1_CHANNEL_0) / 16);
     x[n] = value;
-
+    gpio_set_level(PIN, 1U);
     auto sum_a = 0.0f;
     for (auto i = 0; i < M + 1; i++) {
         auto index = (n + (M + 1) - i) % (M + 1);  // [n - k]
@@ -59,6 +59,8 @@ static auto timer_callback(void *arg) -> void {
     y[n] = sum;
 
     n = (n + 1) % (M + 1);
+
+    gpio_set_level(PIN, 0U);
     dac_output_voltage(DAC_CHANNEL_1, uint8_t(sum));
 }
 

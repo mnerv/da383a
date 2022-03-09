@@ -67,8 +67,6 @@ xlabel('frequency (log_{10} Hz)')
 ylabel('normalised voltage')
 legend('computed', 'measurement')
 
-data = [
-];
 f = [
     100
     200
@@ -123,6 +121,84 @@ grid on
 xlabel('frekvenser (Hz)')
 ylabel('mV')
 title('3.1')
+
+f = [
+50
+100
+150
+200
+250
+300
+350
+400
+450
+500
+550
+600
+650
+700
+750
+800
+850
+900
+950
+1000
+1050
+1100
+1150
+1200
+1250
+1300
+];
+
+v = [
+35.98
+36.54
+35.73
+36.64
+37.30
+37.68
+37.11
+38.06
+34.88
+33.48
+32.70
+32.66
+34.60
+36.49
+31.21
+19.18
+9.91
+5.36
+2.75
+1.50
+1.47
+0.26
+0.099
+0.044
+0.15
+0.20
+];
+
+figure
+plot(f, v)
+%semilogx(f, v)
+grid on
+%xlabel('frekvenser (log_{10} Hz)')
+xlabel('frekvenser (Hz)')
+ylabel('mV')
+title('3.4')
+
+%% 4.1
+f = 250;
+T = 1 / f
+
+s = @(t) 1 * (cos(2 * pi * f * t) - 1 / 3 * cos(2 * pi * 3 * f * t));
+
+t = 0 : T / 1000 : T * 3;
+
+figure
+plot(t, s(t))
 
 function gain = Hsum(w, Hz, b, k)
     for s = 1 : length(w)
