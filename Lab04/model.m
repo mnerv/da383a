@@ -61,6 +61,47 @@ xlabel('frequency (log_{10} Hz)')
 ylabel('normalised voltage')
 legend('computed', 'measurement')
 
+data = [
+];
+f = [
+    50
+    100
+    150
+    200
+    250
+    300
+    400
+    500
+    600
+    700
+    800
+    900
+    1000
+];
+
+v = [
+    34.58
+    22.06
+    23.24
+    32.19
+    22.21
+    32.74
+    36.26
+    35.95
+    11.65
+    36.94
+    28.53
+    11.42
+    0.146
+];
+
+figure
+plot(f, v)
+grid on
+xlabel('frekvenser (Hz)')
+ylabel('mV')
+title('3.1')
+
 function gain = Hsum(w, Hz, b, k)
     for s = 1 : length(w)
         w(s) = sum(Hz(b, w(s), k));
