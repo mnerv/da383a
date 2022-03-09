@@ -193,7 +193,7 @@ title('3.4')
 f = 250;
 T = 1 / f
 
-s = @(t) 1 * (cos(2 * pi * f * t) - 1 / 3 * cos(2 * pi * 3 * f * t));
+s = @(t) 1 * (cos(2 * pi * f * t) - 1 / 3 * cos(2 * pi * 3 * f * t)) + 1 / 5 * cos(2 * pi * 5 * f * t) - 1 / 7 * cos(2 * pi * 7 * f * t) + 1 / 9 * cos(2 * pi * 9 * f * t);
 
 t = 0 : T / 1000 : T * 3;
 
