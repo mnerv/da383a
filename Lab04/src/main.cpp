@@ -15,29 +15,26 @@
 
 extern "C" auto app_main() -> void;
 
-//constexpr auto M = 4;
-//static std::array<float, M + 1> b{
-//    0.01488697472657, -0.02695899404537,  0.03705935223574, -0.02695899404537,
-//    0.01488697472657
-//};
-//static std::array<float, M + 1> x{};
+//constexpr auto M = 0;
+//static std::array<float, M + 1> b{0.1};
 //
-//
-//constexpr auto N = 4;
-//static std::array<float, N + 1> a{
-//     -1,   -3.338693232847,    4.401916486793,   -2.691625646031,
-//     0.6428936122854
-//};
-//static std::array<float, N + 1> y{};
+//constexpr auto N = 1;
+//static std::array<float, N + 1> a{1.0, 0.9};
 
-constexpr auto M = 0;
-static std::array<float, M + 1> b{0.1};
+constexpr auto M = 4;
+static std::array<float, M + 1> b{
+    0.01488697472657, -0.02695899404537,  0.03705935223574, -0.02695899404537,
+    0.01488697472657
+};
+
+constexpr auto N = 4;
+static std::array<float, N + 1> a{
+                   1,   -3.338693232847,    4.401916486793,   -2.691625646031,
+     0.6428936122854
+};
+
 static std::array<float, M + 1> x{};
-
-constexpr auto N = 1;
-static std::array<float, N + 1> a{1.0, 0.9};
 static std::array<float, N + 1> y{};
-
 constexpr std::uint32_t FREQUENCY = 10'000;
 constexpr std::uint64_t US_ONE_S  = 1'000'000;
 constexpr auto PIN                = GPIO_NUM_13;
@@ -48,17 +45,15 @@ static auto timer_callback(void *arg) -> void {
     x[n] = value;
 
     auto sum_a = 0.0f;
-    auto current = n;
     for (auto i = 0; i < M + 1; i++) {
-        sum_a += b[i] * x[current];
-        current = (current + (M + 1) - 1) % (M + 1);
+        auto index = (n + (M + 1) - i) % (M + 1);  // [n - k]
+        sum_a += b[i] * x[index];
     }
 
     auto sum_b = 0.0f;
-    current = n;
     for (auto i = 1; i < N + 1; i++) {
-        sum_b += a[i] * y[current];
-        current = (current + (N + 1) - 1) % (N + 1);
+        auto index = (n + (N + 1) - i) % (N + 1);  // [n - l]
+        sum_b += -a[i] * y[index];
     }
     auto sum = sum_a + sum_b;
     y[n] = sum;
