@@ -15,19 +15,27 @@
 
 extern "C" auto app_main() -> void;
 
-constexpr auto M = 28;
-static std::array<float, M + 1> b{
-    0.01080096047,   0.009150882252,  0.007511904463,  0.0005792030715, -0.01127376128,
-   -0.02515191026,  -0.03590095788,  -0.03739762306,  -0.02453046478,    0.004719638731,
-    0.04788555577,   0.09797523171,   0.1449637711,    0.1784338504,     0.1905580908,
-    0.1784338504,    0.1449637711,    0.09797523171,   0.04788555577,    0.004719638731,
-   -0.02453046478,  -0.03739762306,  -0.03590095788,  -0.02515191026,   -0.01127376128,
-    0.0005792030715, 0.007511904463,  0.009150882252,  0.01080096047
-};
+//constexpr auto M = 4;
+//static std::array<float, M + 1> b{
+//    0.01488697472657, -0.02695899404537,  0.03705935223574, -0.02695899404537,
+//    0.01488697472657
+//};
+//static std::array<float, M + 1> x{};
+//
+//
+//constexpr auto N = 4;
+//static std::array<float, N + 1> a{
+//     -1,   -3.338693232847,    4.401916486793,   -2.691625646031,
+//     0.6428936122854
+//};
+//static std::array<float, N + 1> y{};
+
+constexpr auto M = 0;
+static std::array<float, M + 1> b{0.1};
 static std::array<float, M + 1> x{};
 
 constexpr auto N = 1;
-static std::array<float, N + 1> a{0.1};
+static std::array<float, N + 1> a{1.0, 0.9};
 static std::array<float, N + 1> y{};
 
 constexpr std::uint32_t FREQUENCY = 10'000;
@@ -35,17 +43,27 @@ constexpr std::uint64_t US_ONE_S  = 1'000'000;
 constexpr auto PIN                = GPIO_NUM_13;
 
 static auto timer_callback(void *arg) -> void {
-    static auto k = 0, l = 0;
+    static auto n = 0;
     auto value = float(adc1_get_raw(ADC1_CHANNEL_0) / 16);
-    x[k++] = value;
-    if (k == M + 1) k = 0;
+    x[n] = value;
 
-    auto sum = 0.0f;
-    auto current = k;
+    auto sum_a = 0.0f;
+    auto current = n;
     for (auto i = 0; i < M + 1; i++) {
-        sum += b[i] * x[current];
+        sum_a += b[i] * x[current];
         current = (current + (M + 1) - 1) % (M + 1);
     }
+
+    auto sum_b = 0.0f;
+    current = n;
+    for (auto i = 1; i < N + 1; i++) {
+        sum_b += a[i] * y[current];
+        current = (current + (N + 1) - 1) % (N + 1);
+    }
+    auto sum = sum_a + sum_b;
+    y[n] = sum;
+
+    n = (n + 1) % (M + 1);
     dac_output_voltage(DAC_CHANNEL_1, uint8_t(sum));
 }
 
