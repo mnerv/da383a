@@ -36,21 +36,22 @@ constexpr auto PIN                = GPIO_NUM_13;
 
 static auto timer_callback(void *arg) -> void {
     static auto k = 0, l = 0;
-    x[0] = float(adc1_get_raw(ADC1_CHANNEL_0) / 16);
-    x[k++] = x[0];
+    auto value = float(adc1_get_raw(ADC1_CHANNEL_0) / 16);
+    x[k++] = value;
     if (k == M + 1) k = 0;
 
-    gpio_set_level(PIN, 1U);
     auto sum = 0.0f;
-    for (auto i = M; i >= 0; i--) {
-        sum += b[i] * x[i];
+    auto current = k;
+    for (auto i = 0; i < M + 1; i++) {
+        sum += b[i] * x[current];
+        current = (current + (M + 1) - 1) % (M + 1);
     }
+
     //for (auto i = N - 1; i >= 0; i--) {
     //    sum += a[i] * y[i];
     //}
     //y[l++] = sum;
     //if (l == N + 1) l = 0;
-    gpio_set_level(PIN, 0U);
     dac_output_voltage(DAC_CHANNEL_1, uint8_t(sum));
 }
 
