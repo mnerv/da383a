@@ -15,11 +15,19 @@
 
 extern "C" auto app_main() -> void;
 
-constexpr auto M = 1;
-constexpr auto N = 1;
-static std::array<float, N + 1> b{0.1};
-static std::array<float, M + 1> a{0.9};
+constexpr auto M = 28;
+static std::array<float, M + 1> b{
+    0.01080096047,   0.009150882252,  0.007511904463,  0.0005792030715, -0.01127376128,
+   -0.02515191026,  -0.03590095788,  -0.03739762306,  -0.02453046478,    0.004719638731,
+    0.04788555577,   0.09797523171,   0.1449637711,    0.1784338504,     0.1905580908,
+    0.1784338504,    0.1449637711,    0.09797523171,   0.04788555577,    0.004719638731,
+   -0.02453046478,  -0.03739762306,  -0.03590095788,  -0.02515191026,   -0.01127376128,
+    0.0005792030715, 0.007511904463,  0.009150882252,  0.01080096047
+};
 static std::array<float, M + 1> x{};
+
+constexpr auto N = 1;
+static std::array<float, N + 1> a{0.1};
 static std::array<float, N + 1> y{};
 
 constexpr std::uint32_t FREQUENCY = 10'000;
@@ -32,16 +40,17 @@ static auto timer_callback(void *arg) -> void {
     x[k++] = x[0];
     if (k == M + 1) k = 0;
 
+    gpio_set_level(PIN, 1U);
     auto sum = 0.0f;
     for (auto i = M; i >= 0; i--) {
         sum += b[i] * x[i];
     }
-    for (auto i = N - 1; i >= 0; i--) {
-        sum += a[i] * y[i];
-    }
-    y[l++] = sum;
-    if (l == N + 1) l = 0;
-
+    //for (auto i = N - 1; i >= 0; i--) {
+    //    sum += a[i] * y[i];
+    //}
+    //y[l++] = sum;
+    //if (l == N + 1) l = 0;
+    gpio_set_level(PIN, 0U);
     dac_output_voltage(DAC_CHANNEL_1, uint8_t(sum));
 }
 
