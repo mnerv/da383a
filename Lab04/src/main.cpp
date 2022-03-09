@@ -46,12 +46,6 @@ static auto timer_callback(void *arg) -> void {
         sum += b[i] * x[current];
         current = (current + (M + 1) - 1) % (M + 1);
     }
-
-    //for (auto i = N - 1; i >= 0; i--) {
-    //    sum += a[i] * y[i];
-    //}
-    //y[l++] = sum;
-    //if (l == N + 1) l = 0;
     dac_output_voltage(DAC_CHANNEL_1, uint8_t(sum));
 }
 
