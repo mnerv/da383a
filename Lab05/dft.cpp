@@ -7,12 +7,7 @@
 #include <numeric>
 #include <fstream>
 #include <complex>
-
-auto print_vector(std::vector<double> const& values) -> void {
-    std::for_each(std::begin(values), std::end(values), [](auto const& f) {
-        std::cout << f << "\n";
-    });
-}
+#include <string>
 
 auto fourier_transform(double const& k, std::vector<double> const& samples) -> std::complex<double> {
     using namespace std::complex_literals;
@@ -34,6 +29,16 @@ auto dft(std::vector<double> const& F, std::vector<double> const& samples) -> st
         return fourier_transform(k, samples);
     });
     return frequencies;
+}
+
+template <typename A, typename B>
+auto write_csv(std::string const& filename, std::vector<A> const& a, std::vector<B> const& b) -> void {
+    if (a.size() != b.size()) return;
+    std::ofstream file{filename};
+    auto n = a.size();
+    for (std::size_t i = 0; i < n; i++) {
+        file << a[i] << "," << b[i] << "\n";
+    }
 }
 
 auto main([[maybe_unused]]std::int32_t argc, [[maybe_unused]]char const* argv[]) -> std::int32_t {
@@ -75,11 +80,7 @@ auto main([[maybe_unused]]std::int32_t argc, [[maybe_unused]]char const* argv[])
     });
 
     // write data as csv for plot
-    std::ofstream sample_file{"sample_data.csv"};
-    for (std::size_t i = 0; i < n.size(); i++) {
-        sample_file << n[i] << "," << samples[i] << "\n";
-    }
-    sample_file.close();
+    write_csv("sample_data.csv", n, samples);
 
     std::ofstream dft_file{"dft_data.csv"};
     for (std::size_t i = 0; i < F.size(); i++) {
