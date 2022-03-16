@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-import sys
 import cmath
 import math
 
-def fft_rec(samples: list[float]) -> list:
+def fft_r(samples: list[float]) -> list:
     n = len(samples);
     if n == 1:
         return samples
@@ -16,8 +15,8 @@ def fft_rec(samples: list[float]) -> list:
         x_e[i] = samples[2 * i]
         x_o[i] = samples[2 * i + 1]
 
-    f_e = fft_rec(x_e)
-    f_o = fft_rec(x_o)
+    f_e = fft_r(x_e)
+    f_o = fft_r(x_o)
 
     freqs = [0.0] * n
     for k in range(m):
@@ -27,6 +26,33 @@ def fft_rec(samples: list[float]) -> list:
         freqs[k + m] = f_e[k] - c
 
     return freqs
+
+def fft_i(samples: list[float]) -> list:
+    def reverse_bit(b, radix = 2):
+        n = 0
+        for _ in range(radix + 1):
+            n = n << 1
+            n = n | (b & 1)
+            b = b >> 1
+        return n
+
+    n       = len(samples)
+    rev_i   = list(map(reverse_bit, [i for i in range(n)]))  # reverse bit order radix 2
+    samples = list(map(lambda i : samples[i], rev_i))        # remap to new index order
+    q       = round(math.log(n) / math.log(2))               # log_2(n)
+
+    print(rev_i)
+
+    for j in range(q):
+        m = 2.0 ** (j - 1)
+        c = list(map(lambda k : cmath.exp(-cmath.pi * k / m),
+                [i for i in range(int(m - 1))]))
+
+        for k in range(2**(q - j) + 1):
+            s = int(k * 2 * m)
+            print(s)
+
+    return []
 
 def test_fft_rec():
     F_s = 8
@@ -38,12 +64,26 @@ def test_fft_rec():
     s = list(map(lambda n: math.sin(2.0 * math.pi * f * T_s * n), s))
     print(s)
     print()
-    a = fft_rec(s)
+    a = fft_r(s)
+    for v in a:
+        print(round(abs(v)))
+
+def test_fft_it():
+    F_s = 8
+    T_s = 1 / F_s
+    N   = 8
+    f   = 1
+
+    s = range(N)
+    s = list(map(lambda n: math.sin(2.0 * math.pi * f * T_s * n), s))
+    a = fft_i(s)
     for v in a:
         print(round(abs(v)))
 
 def main():
-    test_fft_rec()
+    print('FFT')
+    #test_fft_rec()
+    test_fft_it()
 
 if __name__ == '__main__':
     main()
