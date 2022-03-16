@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import sys
 import cmath
 import math
 
@@ -41,16 +42,20 @@ def fft_i(samples: list[float]) -> list:
     samples = list(map(lambda i : samples[i], rev_i))        # remap to new index order
     q       = round(math.log(n) / math.log(2))               # log_2(n)
 
-    print(rev_i)
+    freqs = [0.0] * n
+    for j in range(q):          # depth
+        m = int(2.0 ** j)
+        for k in range(2 ** (q - j - 1)):  # row
+            s = int(k * 2 * m + 1)
+            e = int((k + 1) * 2 * m)
+            r = int(s + (e - s + 1) / 2)
 
-    for j in range(q):
-        m = 2.0 ** (j - 1)
-        c = list(map(lambda k : cmath.exp(-cmath.pi * k / m),
-                [i for i in range(int(m - 1))]))
+            even = samples[s:r]
+            odd  = samples[r-1:e + 1]
 
-        for k in range(2**(q - j) + 1):
-            s = int(k * 2 * m)
-            print(s)
+            it = 0
+            for k in range(len()):
+                freqs[s + k] =
 
     return []
 
@@ -80,11 +85,11 @@ def test_fft_it():
     for v in a:
         print(round(abs(v)))
 
-def main():
+def main(args: list[str]):
     print('FFT')
     #test_fft_rec()
     test_fft_it()
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv)
 
