@@ -9,6 +9,11 @@
 #include "Adafruit_GFX.h"
 #include "Adafruit_SSD1306.h"
 
+#ifdef EDITOR_MACOS
+#undef  IRAM_ATTR
+#define IRAM_ATTR
+#endif
+
 namespace nerv {
 template <typename T, typename = typename std::enable_if<std::is_arithmetic<T>::value, T>::type>
 auto map(T const& x, T const& in_min, T const& in_max, T const& out_min, T const& out_max) -> T {
@@ -83,15 +88,14 @@ class buffer {
 
   private:
     T           m_buffer[SIZE];
-    std::size_t m_max = SIZE;
-    std::size_t m_head = 0;
+    std::size_t m_max   = SIZE;
+    std::size_t m_head  = 0;
     std::size_t m_count = 0;
 };
 }
 
-constexpr auto PULSE_PIN = A1;
+constexpr auto PULSE_PIN = A2;
 
-constexpr auto OLED_RESET = 4;
 constexpr auto SCREEN_ADDRESS = 0x3C;
 constexpr auto SCREEN_WIDTH   = 128;
 constexpr auto SCREEN_HEIGHT  = 32;
@@ -101,29 +105,49 @@ Adafruit_SSD1306* screen;
 constexpr std::size_t BUFFER_SIZE = 128;
 nerv::buffer<std::uint16_t, BUFFER_SIZE> buffer;
 
+std::int32_t on_time_count = 0;
+hw_timer_t* timer          = nullptr;
+portMUX_TYPE timer_mux     = portMUX_INITIALIZER_UNLOCKED;
+
+auto IRAM_ATTR on_time() -> void {
+    portENTER_CRITICAL_ISR(&timer_mux);
+    on_time_count++;
+    portEXIT_CRITICAL_ISR(&timer_mux);
+}
+
 auto setup() -> void {
     Serial.begin(115200);
     pinMode(PULSE_PIN, INPUT);
     analogSetAttenuation(ADC_11db);
 
-    screen = new Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+    screen = new Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
     if (!screen->begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
         Serial.println("ERROR");
         for(;;);
     }
+
+    timer = timerBegin(0, 80, true);
+    timerAttachInterrupt(timer, on_time, true);
+    timerAlarmWrite(timer, 1'000'000 / 1'000, true);
+    timerAlarmEnable(timer);
 }
 
 auto loop() -> void {
-    buffer.enq(analogRead(A1)); // max value is 12 bit
+    if (on_time_count < 1) return;
+    portENTER_CRITICAL(&timer_mux);
+    on_time_count--;
+    portEXIT_CRITICAL(&timer_mux);
 
-    delay(3);
+    buffer.enq(analogRead(PULSE_PIN)); // max value is 12 bit
+
     screen->clearDisplay();
     auto it = buffer.begin();
     for (auto i = 0; i < BUFFER_SIZE; i++) {
         auto const value = float(*it++);
-        auto const s = nerv::map(value, 0.0f, 4096.0f, 0.0f, 1.0f);
-        auto y = (s - 0.5f) * -32.0f;
-        screen->drawPixel(i, 16 + y, SSD1306_WHITE);
+        auto const s = nerv::map(value, 0.0f, 2500.0f, 0.0f, 1.0f);
+        auto y = s * -30.0f;
+        screen->drawPixel(i, 32 + y, SSD1306_WHITE);
+        if (it == buffer.end()) break;
     }
     screen->display();
 }
