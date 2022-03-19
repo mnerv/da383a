@@ -1,3 +1,11 @@
+/**
+ * @file   main.cpp
+ * @author Pratchaya Khansomboon (pratchaya.k.git@gmail.com)
+ * @brief  Heartrate monitor
+ * @date   2022-03-18
+ *
+ * @copyright Copyright (c) 2022
+ */
 #include <cstdint>
 #include <type_traits>
 #include <cstddef>
@@ -24,32 +32,29 @@ auto map(T const& x, T const& in_min, T const& in_max, T const& out_min, T const
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
-// Simple circular buffer that overrides the oldest value new value is added.
-// FIFO datastructure, contains a simple a iterator.
+// Fixed size queue buffer, FIFO
 template <typename T, std::size_t SIZE>
-class buffer {
+class queue {
   public:
     template <typename pointer_type, typename reference_type>
     struct iterator_base {
-        using iterator_category = std::bidirectional_iterator_tag;
+        using iterator_category = std::random_access_iterator_tag;
         using difference_type   = std::ptrdiff_t;
         using value_type        = T;
         using pointer           = pointer_type;
         using reference         = reference_type;
 
-        constexpr iterator_base(pointer buffer, std::size_t const& ptr, std::size_t const& max)
-            : m_buffer(buffer), m_ptr(ptr), m_max(max) {}
+        constexpr iterator_base(pointer buffer, std::size_t const& ptr, std::size_t const& max, std::size_t const& end)
+            : m_buffer(buffer), m_ptr(ptr), m_max(max), m_end(end) {}
 
         constexpr auto operator*() const -> reference { return m_buffer[m_ptr]; }
         constexpr auto operator->() -> pointer { return &m_buffer[m_ptr]; }
 
-        // prefix increment
-        constexpr auto operator++() -> iterator_base& {
+        constexpr auto operator++() -> iterator_base& {    // prefix increment
             m_ptr = (m_ptr + m_max - 1) % m_max;
             return *this;
         }
-        // postfix increment
-        constexpr auto operator++(std::int32_t) -> iterator_base {
+        constexpr auto operator++(int) -> iterator_base {  // postfix increment
             auto tmp = *this;
             ++(*this);
             return tmp;
@@ -59,7 +64,7 @@ class buffer {
             m_ptr = (m_ptr + 1) % m_max;
             return *this;
         }
-        constexpr auto operator--(std::int32_t) -> iterator_base {
+        constexpr auto operator--(int) -> iterator_base {
             auto tmp = *this;
             --(*this);
             return tmp;
@@ -72,10 +77,74 @@ class buffer {
             return !(a == b);
         }
 
+        // random access iterator requirements
+        constexpr auto operator+=(difference_type const& n) -> iterator_base& {
+            if ((n > 0 && n > m_max - 1) || (n < 0 && -n > m_max - 1))  // sets the iterator to end iterator
+                m_ptr = (m_ptr + m_max + m_max - 1) % m_max;
+            else                                                        // do normal addition with wrap
+                m_ptr = (m_ptr + m_max + n) % m_max;
+            return *this;
+        }
+
+        constexpr auto operator+(difference_type const& n) -> iterator_base {
+            if ((n > 0 && n > m_max - 1) || (n < 0 && -n > m_max - 1))  // sets the iterator to end iterator
+                m_ptr = (m_ptr + m_max + m_max - 1) % m_max;
+            else                                                        // do normal addition with wrap
+                m_ptr = (m_ptr + m_max + n) % m_max;
+            return *this;
+        }
+        constexpr auto operator-(difference_type const& n) -> iterator_base {
+            return (*this) + (-n);
+        }
+
+        constexpr auto operator-=(difference_type const& n) -> iterator_base& {
+            return (*this) += (-n);
+        }
+
+        constexpr friend auto operator-(iterator_base const& a, iterator_base const& b) -> difference_type {
+            // calcuate the distance to the end iterator
+            auto a_end = a.dist_to_end();
+            auto b_end = b.dist_to_end();
+            return a_end - b_end;
+        }
+
+        constexpr auto operator[](difference_type const& n) -> reference {
+            if ((n > 0 && n > m_max - 1) || (n < 0 && -n > m_max - 1)) // offset the pointer with wrap
+                return m_buffer[(m_ptr + m_max + n) % m_max];
+            else                                                       // deference the unused part of the memory,
+                return m_buffer[(m_ptr + m_max + m_max - 1) % m_max];  // i.e the place where end iterator is pointed at
+        }
+
+        constexpr friend auto operator<(iterator_base const& a, iterator_base const& b) -> bool {
+            return b - a > 0;
+        }
+        constexpr friend auto operator>(iterator_base const& a, iterator_base const& b) -> bool {
+            return b < a;
+        }
+        constexpr friend auto operator>=(iterator_base const& a, iterator_base const& b) -> bool {
+            return !(a < b);
+        }
+        constexpr friend auto operator<=(iterator_base const& a, iterator_base const& b) -> bool {
+            return !(a > b);
+        }
+
+      private:
+        // FIXME: Find a better way to get the distance from the current ptr to the end, complexity: O(n)
+        auto dist_to_end() const -> difference_type {
+            auto start = m_ptr;
+            auto dist = 0;
+            while(start != m_end) {
+                dist++;
+                start = (start + m_max - 1) % m_max;
+            }
+            return dist;
+        }
+
       private:
         pointer     m_buffer;
         std::size_t m_ptr;
         std::size_t m_max;
+        std::size_t m_end;
     };
 
     using iterator       = iterator_base<T*, T&>;
@@ -83,28 +152,28 @@ class buffer {
     using reverse_iterator       = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
-    auto begin() -> iterator { return iterator(m_buffer, m_tail, m_max); }
-    auto end() -> iterator { return iterator(m_buffer, m_head, m_max); }
-    auto cbegin() const -> const_iterator { return const_iterator(m_buffer, m_tail, m_max); }
-    auto cend() const -> const_iterator { return const_iterator(m_buffer, m_head, m_max); }
+    auto begin() -> iterator { return iterator(m_buffer, m_tail, m_max, m_head); }
+    auto end()   -> iterator { return iterator(m_buffer, m_head, m_max, m_head); }
+    auto cbegin() const -> const_iterator { return const_iterator(m_buffer, m_tail, m_max, m_head); }
+    auto cend()   const -> const_iterator { return const_iterator(m_buffer, m_head, m_max, m_head); }
 
     auto rbegin() -> reverse_iterator { return reverse_iterator(end()); }
-    auto rend() -> reverse_iterator { return reverse_iterator(begin()); }
+    auto rend()   -> reverse_iterator { return reverse_iterator(begin()); }
     auto crbegin() const -> const_reverse_iterator { return const_reverse_iterator(cend()); }
-    auto crend() const -> const_reverse_iterator { return const_reverse_iterator(cbegin()); }
+    auto crend()   const -> const_reverse_iterator { return const_reverse_iterator(cbegin()); }
 
   public:
     auto enq(T const& value) -> void {
         m_buffer[m_head] = value;
-        if (buffer::dec_wrap(m_head, m_max) == m_tail)
-            buffer::dec_wrap(m_tail, m_max);
+        if (queue::dec_wrap(m_head, m_max) == m_tail)
+            queue::dec_wrap(m_tail, m_max);
         else
             ++m_size;
     }
     auto deq() -> T {
         auto const ret = m_buffer[m_tail];
         if (m_tail != m_head) {
-            buffer::dec_wrap(m_tail, m_max);
+            queue::dec_wrap(m_tail, m_max);
             --m_size;
         }
         return ret;
@@ -114,8 +183,10 @@ class buffer {
     auto back() -> T { return m_buffer[m_tail]; }
     auto front() -> T { return m_buffer[(m_head + 1) % m_max]; }
 
-    auto operator[](std::size_t index) -> T& { return m_buffer[index]; }
-    //auto operator[](std::size_t index) const -> T const& { return m_buffer[index]; }
+    using ref_type       = T&;
+    using const_ref_type = T const&;
+    auto operator[](std::size_t const& offset) -> ref_type { return m_buffer[(m_tail + m_max + offset) % m_max]; }
+    auto operator[](std::size_t const& offset) const -> const_ref_type { return m_buffer[(m_tail + m_max + offset) % m_max]; }
   private:
     static auto inc_wrap(std::size_t& value, std::size_t const& max) -> std::size_t const& {
         value = (value + 1) % max;
@@ -147,7 +218,7 @@ constexpr auto ONE_SECOND_US  = 1'000'000;
 
 Adafruit_SSD1306* screen;
 constexpr std::size_t BUFFER_SIZE = 300;
-nerv::buffer<std::uint16_t, BUFFER_SIZE> buffer;
+nerv::queue<std::uint16_t, BUFFER_SIZE> buffer;
 
 std::int32_t on_time_count = 0;
 hw_timer_t* timer          = nullptr;
@@ -204,14 +275,13 @@ auto loop() -> void {
     for (auto i = 0; i < SCREEN_WIDTH; i++) {
         auto const value = float(*it++);
         auto const s = nerv::map(value, 0.0f, 4095.0f, 0.0f, 1.0f);
-        auto y = s * -32.0f;
-        screen->drawPixel(SCREEN_WIDTH - i, 32 + y, SSD1306_WHITE);
+        auto y = s * 32.0f;
+        screen->drawPixel(SCREEN_WIDTH - i, 32 - y, SSD1306_WHITE);
     }
     screen->setCursor(90, 0);
     screen->setTextSize(1);
     screen->setTextColor(SSD1306_WHITE);
     screen->printf("%.2f", ONE_SECOND_US / float(current_time - last_beat));
     screen->display();
-
 }
 
