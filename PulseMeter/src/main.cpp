@@ -29,60 +29,69 @@ auto map(T const& x, T const& in_min, T const& in_max, T const& out_min, T const
 template <typename T, std::size_t SIZE>
 class buffer {
   public:
-    struct iterator {
+    template <typename pointer_type, typename reference_type>
+    struct iterator_base {
         using iterator_category = std::bidirectional_iterator_tag;
         using difference_type   = std::ptrdiff_t;
         using value_type        = T;
-        using pointer           = T*;
-        using reference         = T&;
+        using pointer           = pointer_type;
+        using reference         = reference_type;
 
-        iterator(std::size_t ptr, buffer* bfr)
-            : m_buffer(bfr), m_ptr(ptr) {}
+        constexpr iterator_base(pointer buffer, std::size_t const& ptr, std::size_t const& max)
+            : m_buffer(buffer), m_ptr(ptr), m_max(max) {}
 
-        auto operator*() const -> reference { return (*m_buffer)[m_ptr]; }
-        auto operator->() -> pointer { return &(*m_buffer)[m_ptr]; }
+        constexpr auto operator*() const -> reference { return m_buffer[m_ptr]; }
+        constexpr auto operator->() -> pointer { return &m_buffer[m_ptr]; }
 
         // prefix increment
-        auto operator++() -> iterator& {
-            m_ptr = (m_ptr + m_buffer->m_max - 1) % m_buffer->m_max;
+        constexpr auto operator++() -> iterator_base& {
+            m_ptr = (m_ptr + m_max - 1) % m_max;
             return *this;
         }
         // postfix increment
-        auto operator++(std::int32_t) -> iterator {
+        constexpr auto operator++(std::int32_t) -> iterator_base {
             auto tmp = *this;
             ++(*this);
             return tmp;
         }
 
-        auto operator--() -> iterator& {
-            m_ptr = (m_ptr + 1) % m_buffer->m_max;
+        constexpr auto operator--() -> iterator_base& {
+            m_ptr = (m_ptr + 1) % m_max;
             return *this;
         }
-        auto operator--(std::int32_t) -> iterator {
+        constexpr auto operator--(std::int32_t) -> iterator_base {
             auto tmp = *this;
             --(*this);
             return tmp;
         }
 
-        friend auto operator==(iterator const& a, iterator const& b) -> bool {
+        constexpr friend auto operator==(iterator_base const& a, iterator_base const& b) -> bool {
             return a.m_ptr == b.m_ptr;
         }
-        friend auto operator!=(iterator const& a, iterator const& b) -> bool {
+        constexpr friend auto operator!=(iterator_base const& a, iterator_base const& b) -> bool {
             return !(a == b);
         }
 
       private:
-        buffer*     m_buffer;
+        pointer     m_buffer;
         std::size_t m_ptr;
+        std::size_t m_max;
     };
 
-    using reverse_iterator = std::reverse_iterator<iterator>;
+    using iterator       = iterator_base<T*, T&>;
+    using const_iterator = iterator_base<T const*, T const&>;
+    using reverse_iterator       = std::reverse_iterator<iterator>;
+    using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
-    iterator begin() { return iterator(m_tail, this); }
-    iterator end() { return iterator(m_head, this); }
+    auto begin() -> iterator { return iterator(m_buffer, m_tail, m_max); }
+    auto end() -> iterator { return iterator(m_buffer, m_head, m_max); }
+    auto cbegin() const -> const_iterator { return const_iterator(m_buffer, m_tail, m_max); }
+    auto cend() const -> const_iterator { return const_iterator(m_buffer, m_head, m_max); }
 
-    reverse_iterator rbegin() { return reverse_iterator(end()); }
-    reverse_iterator rend() { return reverse_iterator(begin()); }
+    auto rbegin() -> reverse_iterator { return reverse_iterator(end()); }
+    auto rend() -> reverse_iterator { return reverse_iterator(begin()); }
+    auto crbegin() const -> const_reverse_iterator { return const_reverse_iterator(cend()); }
+    auto crend() const -> const_reverse_iterator { return const_reverse_iterator(cbegin()); }
 
   public:
     auto enq(T const& value) -> void {
@@ -192,7 +201,7 @@ auto loop() -> void {
 
     screen->clearDisplay();
     auto it = std::rbegin(buffer);
-    for (auto i = 0; i < BUFFER_SIZE; i++) {
+    for (auto i = 0; i < SCREEN_WIDTH; i++) {
         auto const value = float(*it++);
         auto const s = nerv::map(value, 0.0f, 4095.0f, 0.0f, 1.0f);
         auto y = s * -32.0f;
