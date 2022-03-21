@@ -7,9 +7,6 @@
  * @copyright Copyright (c) 2022
  */
 #include <cstdint>
-#include <type_traits>
-#include <cstddef>
-#include <iterator>
 #include <algorithm>
 
 #include "Arduino.h"
@@ -19,7 +16,9 @@
 #include "Adafruit_SSD1306.h"
 #include "driver/timer.h"
 
+#include "types.hpp"
 #include "queue.hpp"
+#include "utils.hpp"
 
 // Hide editor error when on macOS, the clang lsp server
 // macOS uses don't like the ESP-IDF IRAM_ATTR macro.
@@ -28,40 +27,41 @@
 #define IRAM_ATTR
 #endif
 
-namespace nerv {
-using f32 = float;
-
-template <typename T, typename = typename std::enable_if<std::is_arithmetic<T>::value, T>::type>
-auto map(T const& x, T const& in_min, T const& in_max, T const& out_min, T const& out_max) -> T {
-    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
-}
-
+// constants for configurations
 constexpr auto ONE_SECOND_US = 1'000'000;
 constexpr auto ONE_MINUTE_S  = 60;
 
+// misc configuration
 constexpr auto PULSE_PIN = A2;
 constexpr auto LED_PIN   = 13;
 constexpr auto BAUD_RATE = 115200;
 
+constexpr auto TIMER_FREQUENCY = 1'000;  // Hz
+
+// OLED configurations
 constexpr auto SCREEN_ADDRESS = 0x3C;
 constexpr auto SCREEN_WIDTH   = 128;
 constexpr auto SCREEN_HEIGHT  = 32;
 
-constexpr std::uint16_t MAX_THRESHOLD = 3'000;
-constexpr std::uint16_t MIN_THRESHOLD = 2'200;
-constexpr std::size_t BUFFER_SIZE = 300;
-nerv::queue<std::uint16_t, BUFFER_SIZE> buffer;
+// max and min threshold for pulse data trigger
+constexpr nerv::u16   MAX_THRESHOLD = 3'000;
+constexpr nerv::u16   MIN_THRESHOLD = 2'200;
 
-std::int32_t on_time_count = 0;
-hw_timer_t* timer          = nullptr;
-portMUX_TYPE timer_mux     = portMUX_INITIALIZER_UNLOCKED;
+constexpr nerv::usize BUFFER_SIZE   = 300;
+nerv::queue<nerv::u16, BUFFER_SIZE> buffer{};
 
-std::int64_t current_time = 0;
-std::int64_t last_beat    = 0;
-std::int64_t last_bpm     = 0;
-nerv::f32    bpm_period   = 0.0f;
+// timer callback data
+nerv::i32 on_time_count = 0;
+hw_timer_t* timer       = nullptr;
+portMUX_TYPE timer_mux  = portMUX_INITIALIZER_UNLOCKED;
 
+// pulse data
+nerv::i64 current_time = 0;
+nerv::i64 last_beat    = 0;
+nerv::i64 last_bpm     = 0;
+nerv::f32 bpm_period   = 0.0f;
+
+// OLED interface
 Adafruit_SSD1306 screen(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
 
 auto IRAM_ATTR on_time() -> void {
@@ -72,31 +72,35 @@ auto IRAM_ATTR on_time() -> void {
 
 auto setup() -> void {
     Serial.begin(BAUD_RATE);
+
+    // setup pin mode
     pinMode(PULSE_PIN, INPUT);
     pinMode(LED_PIN, OUTPUT);
-
-    analogSetAttenuation(ADC_11db);
+    analogSetAttenuation(ADC_11db);  // make sure that the adc
+                                     // is set to 11 dB attenuation
 
     if (!screen.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
         Serial.println("ERROR INITIALIZING OLED!");
         for(;;);
     }
 
+    // setup timer interrupt callback at a fixed frequency
     timer = timerBegin(0, 80, true);
     timerAttachInterrupt(timer, on_time, true);
-    timerAlarmWrite(timer, ONE_SECOND_US / 1'000, true);
+    timerAlarmWrite(timer, ONE_SECOND_US / TIMER_FREQUENCY, true);
     timerAlarmEnable(timer);
 }
 
 auto loop() -> void {
     if (on_time_count < 1) return;
+    // update data
+    current_time = esp_timer_get_time();
     portENTER_CRITICAL(&timer_mux);
     on_time_count--;
     portEXIT_CRITICAL(&timer_mux);
-    current_time = esp_timer_get_time();
 
     auto const read_value = analogRead(PULSE_PIN);
-    auto last_sample = *std::rbegin(buffer);
+    auto last_sample      = *std::rbegin(buffer);
 
     if (last_sample < MIN_THRESHOLD && read_value > MIN_THRESHOLD) {
         bpm_period = float(current_time - last_beat) / static_cast<float>(ONE_SECOND_US);
@@ -105,8 +109,11 @@ auto loop() -> void {
     } else {
         digitalWrite(LED_PIN, 0);
     }
-    buffer.enq(read_value); // max value is 12 bit
 
+    // add read value to buffer queue
+    buffer.enq(read_value);
+
+    // render data to OLED
     screen.clearDisplay();
     auto it = std::rbegin(buffer);
     for (auto i = 0; i < SCREEN_WIDTH; i++) {
@@ -117,7 +124,7 @@ auto loop() -> void {
     screen.setTextSize(1);
     screen.setTextColor(SSD1306_WHITE);
 
-    screen.printf("BPM:%.0f", ONE_MINUTE_S / bpm_period );
+    screen.printf("BPM:%.0f", ONE_MINUTE_S / bpm_period);
     screen.display();
 }
 
