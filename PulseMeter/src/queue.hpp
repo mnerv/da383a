@@ -61,7 +61,8 @@ class queue {
 
         // random access iterator requirements
         constexpr auto operator+=(difference_type const& n) -> iterator_base& {
-            if ((n > 0 && n > m_max - 1) || (n < 0 && -n > m_max - 1))  // sets the iterator to end iterator
+            if ((n > 0 && n > difference_type(m_max - 1)) ||
+                (n < 0 && -n > difference_type(m_max - 1)))  // sets the iterator to end iterator
                 m_ptr = (m_ptr + m_max + m_max - 1) % m_max;
             else                                                        // do normal addition with wrap
                 m_ptr = (m_ptr + m_max + n) % m_max;
