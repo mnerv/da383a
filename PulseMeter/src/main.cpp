@@ -6,7 +6,6 @@
  *
  * @copyright Copyright (c) 2022
  */
-#include <cstdint>
 #include <algorithm>
 
 #include "Arduino.h"
@@ -27,7 +26,7 @@
 #define IRAM_ATTR
 #endif
 
-// constants for configurations
+// factor constants for time conversion
 constexpr auto ONE_SECOND_US = 1'000'000;
 constexpr auto ONE_MINUTE_S  = 60;
 
@@ -35,6 +34,9 @@ constexpr auto ONE_MINUTE_S  = 60;
 constexpr auto PULSE_PIN = A2;
 constexpr auto LED_PIN   = 13;
 constexpr auto BAUD_RATE = 115200;
+
+constexpr auto DRAW_RATE   = 30;
+constexpr auto DRAW_PERIOD = ONE_SECOND_US / DRAW_RATE;
 
 constexpr auto TIMER_FREQUENCY = 1'000;  // Hz
 
@@ -47,7 +49,7 @@ constexpr auto SCREEN_HEIGHT  = 32;
 constexpr nerv::u16   MAX_THRESHOLD = 3'000;
 constexpr nerv::u16   MIN_THRESHOLD = 2'200;
 
-constexpr nerv::usize BUFFER_SIZE   = 300;
+constexpr nerv::usize BUFFER_SIZE   = 1024;
 nerv::queue<nerv::u16, BUFFER_SIZE> buffer{};
 
 // timer callback data
@@ -56,13 +58,15 @@ hw_timer_t* timer       = nullptr;
 portMUX_TYPE timer_mux  = portMUX_INITIALIZER_UNLOCKED;
 
 // pulse data
-nerv::i64 current_time = 0;
-nerv::i64 last_beat    = 0;
-nerv::i64 last_bpm     = 0;
 nerv::f32 bpm_period   = 0.0f;
 
 // OLED interface
 Adafruit_SSD1306 screen(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
+
+// time keeping
+nerv::i64 current_time = 0;
+nerv::i64 last_beat    = 0;
+nerv::i64 last_draw    = 0;
 
 auto IRAM_ATTR on_time() -> void {
     portENTER_CRITICAL_ISR(&timer_mux);
@@ -104,7 +108,7 @@ auto loop() -> void {
 
     if (last_sample < MIN_THRESHOLD && read_value > MIN_THRESHOLD) {
         bpm_period = float(current_time - last_beat) / static_cast<float>(ONE_SECOND_US);
-        last_beat = current_time;
+        last_beat  = current_time;
         digitalWrite(LED_PIN, 1);
     } else {
         digitalWrite(LED_PIN, 0);
@@ -114,17 +118,21 @@ auto loop() -> void {
     buffer.enq(read_value);
 
     // render data to OLED
+    if (current_time - last_draw < DRAW_PERIOD) return;
     screen.clearDisplay();
     auto it = std::rbegin(buffer);
     for (auto i = 0; i < SCREEN_WIDTH; i++) {
-        auto const y = nerv::map<std::int32_t>(*it++, 0, 4095, 0, SCREEN_HEIGHT);
+        if (it == std::rend(buffer)) break;
+        auto const y = nerv::map<std::int32_t>(*it, 0, 4095, 0, SCREEN_HEIGHT);
         screen.drawPixel(SCREEN_WIDTH - i, SCREEN_HEIGHT - y, SSD1306_WHITE);
+        it -= BUFFER_SIZE / SCREEN_WIDTH;
     }
     screen.setCursor(0, 0);
     screen.setTextSize(1);
     screen.setTextColor(SSD1306_WHITE);
 
-    screen.printf("BPM:%.0f", ONE_MINUTE_S / bpm_period);
+    screen.printf("BPM:%.0f", static_cast<float>(ONE_MINUTE_S) / bpm_period);
     screen.display();
+    last_draw = current_time;
 }
 
