@@ -23,3 +23,4 @@ grid on
 title('DFT')
 xlabel('frequency [Hz]')
 ylabel('amplitude')
+
