@@ -3,7 +3,7 @@ import sys
 
 def reverse_bit(b: int, radix: int = 2) -> int:
     n = 0
-    for i in range(radix + 1):
+    for _ in range(radix + 1):
         n = n << 1
         n = n | (b & 1)
         b = b >> 1
