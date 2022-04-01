@@ -28,36 +28,38 @@ def fft_r(samples: list[float]) -> list:
 
     return freqs
 
-#def fft_i(samples: list[float]) -> list:
-#    def reverse_bit(b, radix = 2):
-#        n = 0
-#        for i in range(radix + 1):
-#            n = n << 1
-#            n = n | (b & 1)
-#            b = b >> 1
-#        return n
-#
-#    n       = len(samples)
-#    rev_i   = list(map(reverse_bit, [i for i in range(n)]))  # reverse bit order radix 2
-#    samples = list(map(lambda i : samples[i], rev_i))        # remap to new index order
-#    q       = round(math.log(n) / math.log(2))               # log_2(n)
-#
-#    freqs = [0.0] * n  # FFT output
-#    for j in range(q):          # depth
-#        m = int(2.0 ** j)
-#        for k in range(2 ** (q - j - 1)):  # row
-#            s = int(k * 2 * m + 1)
-#            e = int((k + 1) * 2 * m)
-#            r = int(s + (e - s + 1) / 2)
-#
-#            even = samples[s:r]
-#            odd  = samples[r-1:e + 1]
-#
-#            it = 0
-#            for k in range(len()):
-#                freqs[s + k] = 1.0
-#
-#    return []
+def fft_i(samples: list[float]) -> list:
+    def reverse_bit(b, radix = 2):
+        n = 0
+        for i in range(radix + 1):
+            n = n << 1
+            n = n | (b & 1)
+            b = b >> 1
+        return n
+
+    n       = len(samples)
+    rev_i   = list(map(reverse_bit, [i for i in range(n)]))  # reverse bit order radix 2
+    samples = list(map(lambda i : samples[i], rev_i))        # remap to new index order
+    q       = round(math.log(n) / math.log(2))               # log_2(n)
+
+    freqs = samples  # FFT output
+
+    for j in range(q):
+        m = int(2 ** j)
+        for k in range(2 ** (q - (j + 1))):
+            start = k * 2 * m
+            end   = (k + 1) * 2 * m - 1
+            mid   = int(start + (end - start + 1) / 2)
+
+            for i in range(2 * m):
+                print(f'{i + start} ', end = '')
+            #for i in range(start, end + 1):
+            #    print(f'{i - start} ', end = '')
+            print()
+
+        print()
+
+    return freqs
 
 def test_fft_rec():
     F_s = 8
@@ -86,14 +88,16 @@ def test_fft_it():
     s = list(map(lambda n: math.sin(2.0 * math.pi * f * T_s * n), s))
     a = fft_i(s)
 
-    for v in a:
-        print(round(abs(v)))
+    #for v in a:
+    #    print(round(abs(v)))
 
-def main(args: list[str]):
+def main(args: list[str]) -> int:
     print('FFT')
-    test_fft_rec()
-    #test_fft_it()
+    #test_fft_rec()
+    test_fft_it()
+
+    return 0
 
 if __name__ == '__main__':
-    main(sys.argv)
+    sys.exit(main(sys.argv))
 
