@@ -1,75 +1,19 @@
 #!/usr/bin/env python3
+
+# @file   fft.py
+# @author Pratchaya Khansomboon (pratchaya.k.git@gmail.com)
+# @brief  Test recursive, iterative FFT and DFT algorithm
+# @date   2022-04-01
+#
+# @copyright Copyright (c) 2022
 import sys
 import cmath
 import math
 import time
 
-def dft(bucket: list, samples: list):
-    f = []
-    N = len(samples)
-    for k in bucket:
-        sum = 0.0
-        n = 0
-        for a in samples:
-            sum = sum + a * cmath.exp(-2.0j * cmath.pi * k * n / N)
-            n += 1
-        f.append(sum)
-    return f
-
-def fft_r(samples: list[float]) -> list:
-    n = len(samples);
-    if n == 1:
-        return samples
-
-    m = int(n / 2)
-
-    x_e = [0.0] * m
-    x_o = [0.0] * m
-    for i in range(m):
-        x_e[i] = samples[2 * i]
-        x_o[i] = samples[2 * i + 1]
-
-    f_e = fft_r(x_e)
-    f_o = fft_r(x_o)
-
-    freqs = [0.0] * n
-    for k in range(m):
-        c = cmath.exp(-2.0j * cmath.pi * k / n) * f_o[k]
-
-        freqs[k]     = f_e[k] + c
-        freqs[k + m] = f_e[k] - c
-
-    return freqs
-
-def reverse_bit(b: int, bit_size: int) -> int:
-    n = 0
-    for _ in range(bit_size):
-        n = n << 1
-        n = n | (b & 1)
-        b = b >> 1
-    return n
-
-def fft_i(samples: list[float]) -> list:
-    n        = len(samples)
-    bit_size = int(math.log(n) / math.log(2))
-    samples  = [samples[reverse_bit(i, bit_size)] for i in range(n)]
-    q        = bit_size
-
-    for j in range(q):
-        m = int(2 ** j)
-        for k in range(2 ** (q - (j + 1))):
-            start = k * 2 * m
-            end   = (k + 1) * 2 * m - 1
-            mid   = int(start + (end - start + 1) / 2)
-
-            for n in range(m):
-                index = n + start
-                z = cmath.exp(-cmath.pi * 1.0j * n / m) * samples[n + mid]
-                f = samples[index]
-                samples[index]     = f + z
-                samples[index + m] = f - z
-
-    return samples
+from dft import dft
+from fftr import fftr
+from ffti import ffti
 
 def test_dft(samples):
     bucket = [n for n in range(len(samples))]
@@ -95,13 +39,13 @@ def test_fft_r(samples):
 
     start = time.time()
     for i in range(1000):
-        f = fft_r(samples)
+        f = fftr(samples)
     end = time.time()
     print(f'   1 000: {end - start} s')
 
     start = time.time()
     for i in range(10000):
-        f = fft_r(samples)
+        f = fftr(samples)
     end = time.time()
     print(f'  10 000: {end - start} s')
     return
@@ -111,13 +55,13 @@ def test_fft_i(samples):
 
     start = time.time()
     for i in range(1000):
-        f = fft_i(samples)
+        f = ffti(samples)
     end = time.time()
     print(f'   1 000: {end - start} s')
 
     start = time.time()
     for i in range(10000):
-        f = fft_i(samples)
+        f = ffti(samples)
     end = time.time()
     print(f'  10 000: {end - start} s')
 
