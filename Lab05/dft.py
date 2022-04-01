@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+
+# @file   dft.py
+# @author Pratchaya Khansomboon (pratchaya.k.git@gmail.com)
+# @brief  DFT Python implementation
+# @date   2022-04-01
+#
+# @copyright Copyright (c) 2022
 import sys
 import cmath
 import math
@@ -31,6 +38,7 @@ def main(args: list[str]) -> int:
     bucket = n
     bucket = dft(bucket, samples)
 
+    # Prints out the complex outputs
     for i in range(len(bucket)):
         f = bucket[i]
         real = '{:.2f}'.format(f.real)
@@ -42,6 +50,7 @@ def main(args: list[str]) -> int:
         else:
             print()
 
+    # Prints out the magnitude and phase angle
     for i in range(len(bucket)):
         f = bucket[i]
         mag   = math.sqrt(f.real * f.real + f.imag * f.imag)
