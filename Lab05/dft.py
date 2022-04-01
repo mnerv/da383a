@@ -23,7 +23,7 @@ def main(args: list[str]) -> int:
     fs = 8.0       # sampling frequency [Hz]
     Ts = 1.0 / fs  # sampling period    [s]
 
-    # generate sinusoidal signal
+    # generate sinusoidal signal hello
     def signal(n):
         return math.sin(2.0 * math.pi * f * Ts * n)
     samples = list(map(signal, n))  # x[n]
@@ -31,9 +31,26 @@ def main(args: list[str]) -> int:
     bucket = n
     bucket = dft(bucket, samples)
 
-    bucket = list(map(lambda x : round(abs(x)), bucket))
+    for i in range(len(bucket)):
+        f = bucket[i]
+        real = '{:.2f}'.format(f.real)
+        imag = '{:.2f}'.format(abs(f.imag))
+        pm   = '+' if f.imag > 0 else '-'
+        print(f'{real} {pm} {imag}i', end = '')
+        if i < len(bucket) - 1:
+            print('  ', end = '')
+        else:
+            print()
 
-    print(bucket)
+    for i in range(len(bucket)):
+        f = bucket[i]
+        mag   = math.sqrt(f.real * f.real + f.imag * f.imag)
+        phase = math.atan(f.imag / f.real) if f.real != 0 else 0
+
+        fmag   = '{:.2f}'.format(mag)
+        fphase = '{:.2f}'.format(phase)
+
+        print(f'mag: {fmag}, phase: {fphase}', end = '\n')
 
     return 0
 
