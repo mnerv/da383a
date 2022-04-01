@@ -2,29 +2,26 @@ clc
 clear
 close all
 
-d = csvread('data.csv');
-d_n = csvread('data_noise.csv');
-out = csvread('data_out.csv');
+filename = 'plot_data.csv';
+f_id   = fopen(filename, 'r');
+header = strsplit(fgetl(f_id), ',');
+header(1) = [];
+fclose(f_id);
 
-x = d(:,1);
-y = d(:,2);
+data = csvread(filename, 1);
+n = data(:,1);
 
 figure
 %stem(x, y)
-plot(x, y)
+plot(n, data(:,2))
 hold on
-
-x = d_n(:,1);
-y = d_n(:,2);
-plot(x, y, '.','MarkerSize', 1)
-
-x = out(:,1);
-y = out(:,2);
-plot(x, y, '-.', 'LineWidth', 2)
-
+plot(n, data(:,3), '.:','MarkerSize', 5)
+%plot(x, y, '-','MarkerSize', 1)
+plot(n, data(:,4), '.-', 'MarkerSize', 5)
 
 grid on
 title('sample data')
 xlabel('sample [n]')
 ylabel('amplitude')
+legend(header)
 
