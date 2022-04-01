@@ -52,11 +52,8 @@ def reverse_bit(b: int, bit_size: int) -> int:
 def fft_i(samples: list[float]) -> list:
     n        = len(samples)
     bit_size = int(math.log(n) / math.log(2))
-    indexes  = [reverse_bit(i, bit_size) for i in range(n)]  # reverse bit order radix 2
-    samples  = list(map(lambda i : samples[i], indexes))     # remap to new index order
+    samples  = [samples[reverse_bit(i, bit_size)] for i in range(n)]
     q        = bit_size
-
-    freqs = samples  # FFT output
 
     for j in range(q):
         m = int(2 ** j)
@@ -67,12 +64,12 @@ def fft_i(samples: list[float]) -> list:
 
             for n in range(m):
                 index = n + start
-                z = cmath.exp(-cmath.pi * 1.0j * n / m) * freqs[n + mid]
-                f = freqs[index]
-                freqs[index]     = f + z
-                freqs[index + m] = f - z
+                z = cmath.exp(-cmath.pi * 1.0j * n / m) * samples[n + mid]
+                f = samples[index]
+                samples[index]     = f + z
+                samples[index + m] = f - z
 
-    return freqs
+    return samples
 
 def test_dft(samples):
     bucket = [n for n in range(len(samples))]
@@ -141,3 +138,4 @@ def main(argc: int, args: list[str]) -> int:
 
 if __name__ == '__main__':
     sys.exit(main(len(sys.argv), sys.argv))
+
