@@ -51,13 +51,21 @@ def fft_i(samples: list[float]) -> list:
             end   = (k + 1) * 2 * m - 1
             mid   = int(start + (end - start + 1) / 2)
 
-            for i in range(2 * m):
-                print(f'{i + start} ', end = '')
-            #for i in range(start, end + 1):
-            #    print(f'{i - start} ', end = '')
-            print()
+            even = []
+            odd  = []
+            for n in range(2 * m):
+                index = n + start
+                if index < mid:
+                    even.append(freqs[index])
+                else:
+                    odd.append(freqs[index])
 
-        print()
+            for n in range(m):
+                index = n + start
+                z = cmath.exp(-cmath.pi * 1.0j * n / m) * odd[n]
+
+                freqs[index]     = even[n] + z
+                freqs[index + m] = even[n] - z
 
     return freqs
 
@@ -88,8 +96,8 @@ def test_fft_it():
     s = list(map(lambda n: math.sin(2.0 * math.pi * f * T_s * n), s))
     a = fft_i(s)
 
-    #for v in a:
-    #    print(round(abs(v)))
+    a = list(map(lambda x : round(abs(x)), a))
+    print(a)
 
 def main(args: list[str]) -> int:
     print('FFT')

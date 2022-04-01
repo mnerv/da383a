@@ -8,9 +8,11 @@ Ts = 1 / fs;
 
 N = 8
 n = 0:N - 1;
-samples = sin(2 * pi * f * Ts * n)
+samples = sin(2 * pi * f * Ts * n);
 
-fft_it(samples)
+a = fft_it(samples)
+
+abs(a)
 
 function y = fft_it(x)
     n = length(x);
@@ -22,9 +24,9 @@ function y = fft_it(x)
         for k = 1 : 2^(q - j);
             s = (k - 1) * 2 * m + 1;
             e = k * 2 * m;
-            r = s + (e - s + 1) / 2
+            r = s + (e - s + 1) / 2;
             even = x(s:(r - 1));
-            odd  = x(r:e)
+            odd  = x(r:e);
             z = d .* odd;
             y = [even + z, even - z];
             x(s:e) = y;
