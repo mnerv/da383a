@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 import sys
+import math
 
-def reverse_bit(b: int, radix: int = 2) -> int:
+def reverse_bit(b: int, bit_size: int) -> int:
     n = 0
-    for _ in range(radix + 1):
+    for _ in range(bit_size):
         n = n << 1
         n = n | (b & 1)
         b = b >> 1
@@ -21,24 +22,26 @@ def parse_num(text: str, default: int):
     except ValueError:
         return default
 
+def is_power_of_2(n: int):
+    return (n != 0) and (n & (n - 1)) == 0
+
 def main(argc: int, argv: list[str]):
     if argc < 2:
         print('error: not enough arguments')
         return 1
 
-    DEFAULT_NUMBER = 0b0000_1111
-    DEFAULT_RADIX  = 2
+    size = parse_num(argv[1], 8)
 
-    number = parse_num(argv[1], DEFAULT_NUMBER)
-    radix  = parse_num(argv[2], DEFAULT_RADIX) if argc > 2 else DEFAULT_RADIX
+    if not is_power_of_2(size):
+        print('error: size needs to be power of 2!')
+        return 1
 
-    rbit = reverse_bit(number, radix)
+    bit_size = int(math.log(size) / math.log(2))
+    n  = [x for x in range(size)]
+    rn = list(map(lambda x : reverse_bit(x, bit_size), n))
 
-    in_fmt   = '{0:b}'.format(number).zfill(8)
-    rbit_fmt = '{0:b}'.format(rbit).zfill(8)
-
-    print(f'input:   0b{in_fmt}')
-    print(f'reverse: 0b{rbit_fmt}')
+    for i in range(size):
+        print(f'{n[i]}    {rn[i]}')
 
 if __name__ == '__main__':
     sys.exit(main(len(sys.argv), sys.argv))
