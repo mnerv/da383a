@@ -46,8 +46,8 @@ constexpr auto SCREEN_WIDTH   = 128;
 constexpr auto SCREEN_HEIGHT  = 32;
 
 // max and min threshold for pulse data trigger
-constexpr nerv::u16   MAX_THRESHOLD = 3'000;
-constexpr nerv::u16   MIN_THRESHOLD = 2'200;
+constexpr nerv::u16 MAX_THRESHOLD = 3'000;
+constexpr nerv::u16 MIN_THRESHOLD = 2'200;
 
 constexpr nerv::usize BUFFER_SIZE   = 1024;
 nerv::queue<nerv::u16, BUFFER_SIZE> buffer{};
@@ -66,6 +66,7 @@ Adafruit_SSD1306 screen(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
 // time keeping
 nerv::i64 current_time = 0;
 nerv::i64 last_beat    = 0;
+nerv::i64 last_update  = 0;
 nerv::i64 last_draw    = 0;
 
 auto IRAM_ATTR on_time() -> void {
@@ -104,9 +105,7 @@ auto loop() -> void {
     portEXIT_CRITICAL(&timer_mux);
 
     auto const read_value = analogRead(PULSE_PIN);
-    auto last_sample      = *std::rbegin(buffer);
-
-    if (last_sample < MIN_THRESHOLD && read_value > MIN_THRESHOLD) {
+    if (*std::rbegin(buffer) < MIN_THRESHOLD && read_value > MIN_THRESHOLD) {
         bpm_period = float(current_time - last_beat) / static_cast<float>(ONE_SECOND_US);
         last_beat  = current_time;
         digitalWrite(LED_PIN, 1);
@@ -117,22 +116,31 @@ auto loop() -> void {
     // add read value to buffer queue
     buffer.enq(read_value);
 
+    auto update_delta = current_time - last_update;
+    last_update = current_time;
     // render data to OLED
     if (current_time - last_draw < DRAW_PERIOD) return;
     screen.clearDisplay();
+
+    nerv::i32 min = *std::min_element(std::rbegin(buffer), std::rend(buffer));
+    nerv::i32 max = *std::max_element(std::rbegin(buffer), std::rend(buffer));
+
     auto it = std::rbegin(buffer);
     for (auto i = 0; i < SCREEN_WIDTH; i++) {
         if (it == std::rend(buffer)) break;
-        auto const y = nerv::map<std::int32_t>(*it, 0, 4095, 0, SCREEN_HEIGHT);
+        auto const y = nerv::map<nerv::i32>(*it, min, max, 0, SCREEN_HEIGHT);
         screen.drawPixel(SCREEN_WIDTH - i, SCREEN_HEIGHT - y, SSD1306_WHITE);
         it -= BUFFER_SIZE / SCREEN_WIDTH;
     }
+
+    // print BPM to OLED
     screen.setCursor(0, 0);
     screen.setTextSize(1);
     screen.setTextColor(SSD1306_WHITE);
-
     screen.printf("BPM:%.0f", static_cast<float>(ONE_MINUTE_S) / bpm_period);
+
     screen.display();
+    Serial.printf("frame time: %lld ms, update: %lld ms\n", (current_time - last_draw) / 1000, update_delta / 1000);
     last_draw = current_time;
 }
 
