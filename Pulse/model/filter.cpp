@@ -18,8 +18,8 @@
 #include "types.hpp"
 #include "queue.hpp"
 
-//#include "fdacoefs.h"
-#include "fdacoefs_ss.h"
+#include "fdacoefs.h"
+//#include "fdacoefs_ss.h"
 
 namespace envi {
 auto clear = "\033[H\033[2J";
@@ -39,70 +39,23 @@ auto test(nerv::f64 x) -> nerv::f64 {
     return std::sin(2.0 * M_PI * 125.0 * x);
 }
 
-auto iir([[maybe_unused]]queue_t& w, nerv::f64 x) -> nerv::f64 {
-    //static nerv::usize n = 0;
-    //auto a = DEN;
-    //auto b = NUM;
-    //constexpr nerv::usize M = NL - 1;
-    //constexpr nerv::usize N = DL - 1;
-    //static nerv::f64 XX[M + 1];
-    //static nerv::f64 YY[N + 1];
-
-    //XX[n] = x;
-    //auto sum_a = 0.0f;
-    //for (nerv::usize i = 0; i < M + 1; i++) {
-    //    auto index = (n + (M + 1) - i) % (M + 1);  // [n - k]
-    //    sum_a += b[i] * XX[index];
-    //}
-
-    //auto sum_b = 0.0f;
-    //for (nerv::usize i = 1; i < N + 1; i++) {
-    //    auto index = (n + (N + 1) - i) % (N + 1);  // [n - l]
-    //    sum_b += -a[i] * YY[index];
-    //}
-    //auto sum = sum_a + sum_b;
-    //YY[n] = sum;
-    //n = (n + 1) % (M + 1);
-
-    //return sum;
-    auto a = DEN;
-    auto b = NUM;
-    constexpr nerv::usize M = NL - 1;
-    constexpr nerv::usize N = DL - 1;
-    static nerv::queue<nerv::f64, M + 1> XX{};
-    static nerv::queue<nerv::f64, N + 1> YY{};
-
-    XX.enq(x);
-    auto sum_a = 0.0f;
-    for (nerv::usize i = 0; i < M + 1; i++) {
-        sum_a += b[i] * XX.at_front(i);
+auto iir(queue_t& w, nerv::f64 x) -> nerv::f64 {
+    nerv::f64 output = x;
+    for (nerv::usize i = 0; i < MWSPT_NSEC - 1; i += 2) {
+        auto a = DEN[i + 1];
+        auto b = NUM[i + 1];
+        nerv::f64 feedback = output * NUM[i][0];
+        for (nerv::usize j = 1; j < w.capacity(); j++) {
+            feedback += -a[j] * w.at_back(j);
+        }
+        w.enq(feedback);
+        nerv::f64 forward  = 0.0;
+        for (nerv::usize j = 0; j < w.capacity(); j++) {
+            forward += b[j] * w.at_front(j);
+        }
+        output = forward;
     }
-
-    auto sum_b = 0.0f;
-    for (nerv::usize i = 1; i < N + 1; i++) {
-        sum_b += -a[i] * YY.at_back(i);
-    }
-    auto sum = sum_a + sum_b;
-    YY.enq(sum);
-
-    return sum;
-
-    //for (nerv::usize i = 0; i < MWSPT_NSEC - 1; i += 2) {
-    //    auto a = DEN[i + 1];
-    //    auto b = NUM[i + 1];
-
-    //    nerv::f64 feedback = x * NUM[i][0];
-    //    for (nerv::usize j = 1; j < DL[i + 1]; j++) {
-    //        feedback += a[j] * w.at_front(j);
-    //    }
-    //    w.enq(feedback);
-    //    nerv::f64 forward  = 0.0;
-    //    for (nerv::usize j = 0; j < NL[i + 1]; j++) {
-    //        forward += b[j] * w.at_back(j);
-    //    }
-    //    x = forward;
-    //}
-    //return x * NUM[MWSPT_NSEC - 1][0];
+    return output * NUM[MWSPT_NSEC - 1][0];
 }
 }
 
@@ -146,7 +99,7 @@ auto main([[maybe_unused]]nerv::i32 argc, [[maybe_unused]]char const* argv[]) ->
 
     std::ofstream plot_data{"plot_data.csv"};
     plot_data << "samples" << "," << "original" << "," << "w/ noise" << "," << "filtered" << "\n";
-    for (nerv::usize i = 100; i < n.size(); i++) {
+    for (nerv::usize i = 0; i < n.size(); i++) {
         plot_data << n[i]       << ",";
         plot_data << samples[i] << ",";
         plot_data << samples_noise[i] << ",";
