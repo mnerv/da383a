@@ -10,6 +10,7 @@
 
 #include <cstdint>
 #include <iterator>
+#include <iostream>
 
 namespace nerv {
 // Fixed size queue buffer, FIFO
@@ -148,9 +149,10 @@ class queue {
   public:
     auto enq(T const& value) -> void {
         m_buffer[m_head] = value;
-        if (queue::dec_wrap(m_head, m_max) == m_tail)
+        queue::dec_wrap(m_head, m_max);
+        if (m_head == m_tail)
             queue::dec_wrap(m_tail, m_max);
-        else
+        if (m_size < m_max)
             ++m_size;
     }
     auto enq_keep(T const& value) -> void {
@@ -173,11 +175,11 @@ class queue {
 
     using ref_type       = T&;
     using const_ref_type = T const&;
-    auto operator[](std::size_t const& offset) -> ref_type { return m_buffer[(m_tail + m_max + offset) % m_max]; }
-    auto operator[](std::size_t const& offset) const -> const_ref_type { return m_buffer[(m_tail + m_max + offset) % m_max]; }
+    auto operator[](std::size_t const& offset) -> ref_type { return at_front(offset); }
+    auto operator[](std::size_t const& offset) const -> const_ref_type { return at_front(offset); }
 
-    auto at_front(std::size_t const& offset) -> ref_type { return m_buffer[(m_tail + m_max + offset) % m_max]; }
-    auto at_front(std::size_t const& offset) const -> const_ref_type { return m_buffer[(m_tail + m_max + offset) % m_max]; }
+    auto at_front(std::size_t const& offset) -> ref_type { return m_buffer[(m_tail + m_max - offset) % m_max]; }
+    auto at_front(std::size_t const& offset) const -> const_ref_type { return m_buffer[(m_tail + m_max - offset) % m_max]; }
 
     auto at_back(std::size_t const& offset) -> ref_type { return m_buffer[(m_head + m_max + offset) % m_max]; }
     auto at_back(std::size_t const& offset) const -> const_ref_type { return m_buffer[(m_head + m_max + offset) % m_max]; }
