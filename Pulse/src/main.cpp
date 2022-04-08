@@ -1,7 +1,9 @@
 /**
  * @file   main.cpp
  * @author Pratchaya Khansomboon (pratchaya.k.git@gmail.com)
- * @brief  Heartrate monitor
+ * @brief  Pulse monitor. This project uses a lightbase heartbeat sensor on the
+ *         finger tip. This implementation does not have any signal filter and
+ *         calculate the BPM between every trigger point.
  * @date   2022-03-18
  *
  * @copyright Copyright (c) 2022
