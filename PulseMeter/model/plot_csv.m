@@ -12,12 +12,10 @@ data = csvread(filename, 1);
 n = data(:,1);
 
 figure
-%stem(x, y)
 plot(n, data(:,2))
 hold on
 plot(n, data(:,3), '.:','MarkerSize', 5)
-%plot(x, y, '-','MarkerSize', 1)
-plot(n, data(:,4), '.-', 'MarkerSize', 5)
+plot(n, data(:,4), '.-', 'MarkerSize', 6)
 
 grid on
 title('sample data')

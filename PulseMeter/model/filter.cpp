@@ -20,11 +20,14 @@
 
 #include "fdacoefs.h"
 
+
 namespace envi {
 auto clear = "\033[H\033[2J";
 auto hide  = "\033[?25l";
 auto show  = "\033[?25h";
 auto reset = "\u001b[0m";
+
+using queue_t = nerv::queue<nerv::f64, 3>;
 
 auto ecg(nerv::f64 x) -> nerv::f64 {
     auto f = 1.5;
@@ -36,10 +39,42 @@ auto test(nerv::f64 x) -> nerv::f64 {
     return std::sin(2.0 * M_PI * 125.0 * x);
 }
 
-auto iir() -> nerv::f64 {
-    [[maybe_unused]]nerv::f64 feedback = 0.0;
-    [[maybe_unused]]nerv::f64 forward  = 0.0;
-    return 0.0;
+auto iir(queue_t& w, nerv::f64 x) -> nerv::f64 {
+    nerv::f64 gain = NUM[0][0];
+    nerv::f64 feedback = x * gain;
+    nerv::f64 forward  = 0.0;
+
+    for (nerv::usize i = 0; i < MWSPT_NSEC; i += 2) {
+        for (nerv::usize j = 1; j < w.capacity(); j++) {
+            feedback += DEN[i][j] * w[j - 1];
+        }
+        w.enq(feedback);
+        forward = 0.0;
+        for (nerv::usize j = 0; j < w.capacity(); j++) {
+            forward += NUM[i][j] * w.at_back(j);
+        }
+        gain = NUM[i + 1][0];
+        forward *= gain;
+        feedback = forward;
+    }
+    return forward;
+
+
+    //nerv::f64 feedback = x * NUM[0][0];
+    //nerv::f64 forward  = 0.0;
+    //for (nerv::usize i = 1; i < MWSPT_NSEC; i += 2) {
+    //    for (nerv::usize j = 1; j < w.capacity(); j++) {
+    //        feedback += DEN[i][j] * w[j];
+    //    }
+    //    w.enq(feedback);
+    //    forward = 0.0;
+    //    for (nerv::usize j = 0; j < w.capacity(); j++) {
+    //        forward += NUM[i][j] * w.at_back(j);
+    //    }
+    //    forward *= NUM[i + 1][0];
+    //    feedback = forward;
+    //}
+    //return forward;
 }
 }
 
@@ -70,10 +105,17 @@ auto main([[maybe_unused]]nerv::i32 argc, [[maybe_unused]]char const* argv[]) ->
 
     std::vector<nerv::f64> output(sample_count);
 
+    nerv::queue<nerv::f64, 3> w{};
+    for(nerv::usize i = 0; i < w.capacity(); i++) {
+        w.enq(0);
+    }
+
     // Simulate signal being read
+    //auto read_value = samples_noise[1];
+    //output[0] = envi::iir(w, read_value);
     for (nerv::usize i = 0; i < sample_count; i++) {
-        [[maybe_unused]]auto read_value = samples_noise[i];
-        output[i] = 0.0;
+        auto read_value = samples_noise[i];
+        output[i] = envi::iir(w, read_value);
     }
 
     std::ofstream plot_data{"plot_data.csv"};
@@ -85,6 +127,7 @@ auto main([[maybe_unused]]nerv::i32 argc, [[maybe_unused]]char const* argv[]) ->
         plot_data << output[i]        << "\n";
     }
 
+    std::cout << "IIR filter\n";
     return 0;
 }
 
