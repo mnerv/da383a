@@ -21,5 +21,5 @@ c++ $compile_flags $input_file -o $target_dir/$out_name
 green=$"\u001b[32m"
 reset=$"\u001b[0m"
 
-echo "Done!\n"
+echo "Done!"
 

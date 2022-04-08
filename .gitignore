@@ -6,7 +6,6 @@
 **/obj
 
 env.ini
-__pycache__
 
 # ┃ Generated Workspaces
 # ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫ #
@@ -36,6 +35,12 @@ compile_commands.json
 
 ## PlatformIO
 .pio
+
+## ninja
+.ninja_log
+
+## Python
+__pycache__
 
 # ┃ System Files
 # ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫ #
