@@ -2,12 +2,14 @@ clc
 clear
 close all
 
+% Prepare header name for legend texts
 filename = 'plot_data.csv';
 f_id   = fopen(filename, 'r');
 header = strsplit(fgetl(f_id), ',');
 header(1) = [];
 fclose(f_id);
 
+% Read data columns skip the first row
 data = csvread(filename, 1);
 n = data(:,1);
 

@@ -2,7 +2,7 @@ cxx = c++
 cc  = cc
 cflags = -std=c++20
 cflags = $cflags -Wall -Wextra -Wno-deprecated -Werror -Wpedantic
-cflags = $cflags -I. -I../src
+cflags = $cflags -I. -I../src -g
 
 bin_dir = bin
 
