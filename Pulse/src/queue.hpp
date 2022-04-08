@@ -166,6 +166,7 @@ class queue {
         return ret;
     }
 
+    auto capacity() const -> std::size_t { return SIZE; }
     auto size() const -> std::size_t { return m_size; }
     auto back() -> T { return m_buffer[m_tail]; }
     auto front() -> T { return m_buffer[(m_head + 1) % m_max]; }
@@ -174,6 +175,12 @@ class queue {
     using const_ref_type = T const&;
     auto operator[](std::size_t const& offset) -> ref_type { return m_buffer[(m_tail + m_max + offset) % m_max]; }
     auto operator[](std::size_t const& offset) const -> const_ref_type { return m_buffer[(m_tail + m_max + offset) % m_max]; }
+
+    auto at_front(std::size_t const& offset) -> ref_type { return m_buffer[(m_tail + m_max + offset) % m_max]; }
+    auto at_front(std::size_t const& offset) const -> const_ref_type { return m_buffer[(m_tail + m_max + offset) % m_max]; }
+
+    auto at_back(std::size_t const& offset) -> ref_type { return m_buffer[(m_head + m_max + offset) % m_max]; }
+    auto at_back(std::size_t const& offset) const -> const_ref_type { return m_buffer[(m_head + m_max + offset) % m_max]; }
 
   private:
     static auto inc_wrap(std::size_t& value, std::size_t const& max) -> std::size_t const& {
