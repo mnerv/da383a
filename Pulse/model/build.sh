@@ -10,7 +10,7 @@ out="${in%.*}"
 out="${out##*/}"
 
 cpp_version=-std=c++20
-warnings="-Wall -Wextra -Wpedantic -Werror -Wno-missing-field-initializers"
+warnings="-Wall -Wextra -Wconversion -Wpedantic -Werror -Wno-missing-field-initializers"
 target_dir=bin
 include_dir="-I. -I../src"
 library="-lgtest"

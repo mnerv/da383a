@@ -66,26 +66,40 @@ auto test(nrv::f64 x) -> nrv::f64 {
     return std::sin(2.0 * M_PI * 125.0 * x);
 }
 
-nrv::f64 x[length_of(b)];
-nrv::f64 y[length_of(a)];
+static nrv::ring<nrv::f64, length_of(b)> x_r{};
+static nrv::ring<nrv::f64, length_of(a)> y_r{};
+
+static nrv::f64 x[length_of(b)]{};
+static nrv::f64 y[length_of(a)]{};
 
 auto iir(nrv::f64 const& value) -> nrv::f64 {
     static std::size_t n = 0;
+    x_r.enq(value);
     x[n] = value;
+
     auto forward = 0.0;
-    for (std::size_t i = 0; i < length_of(b); i ++) {
+    for (std::size_t i = 0; i < x_r.capacity(); i++) {
         auto index = (n + length_of(b) - i) % length_of(b);  // [n - k]
-        forward += b[i] * x[index];
+        forward += b[i] * x_r[index];
+        std::cout << x[index] << ":::" << x_r[i] << "\n";
+        assert(x[index] == x_r[i]);
     }
+    std::cout << "----------------------\n";
 
     auto feedback = 0.0;
-    for (std::size_t i = 1; i < length_of(a); i ++) {
-        auto index = (n + length_of(b) - i) % length_of(b);  // [n - k]
-        feedback += -a[i] * y[index];
+    for (std::size_t i = 1; i < y_r.capacity(); i++) {
+        auto index = (n - i + length_of(a)) % length_of(a);
+        feedback += -a[i] * y_r[i - 1];
+        std::cout << y[index] << ":::" << y_r[i - 1] << "\n";
+        assert(y[index] == y_r[i - 1]);
     }
     auto sum = forward + feedback;
+    std::cout << "sum: " << sum << "\n";
     y[n] = sum;
+    y_r.enq(sum);
     n = (n + 1) % length_of(b);
+
+    std::cout << "======================\n";
     return sum;
 }
 
@@ -130,7 +144,7 @@ auto main([[maybe_unused]]nrv::i32 argc, [[maybe_unused]]char const* argv[]) -> 
     for (nrv::usize i = 0; i < sample_count; i++) {
         auto read_value = samples_noise[i];
         output[i] = env::iir(read_value);
-        std::cout << output[i] << "\n";
+        //std::cout << output[i] << "\n";
     }
 
     std::ofstream plot_data{"plot_data.csv"};
