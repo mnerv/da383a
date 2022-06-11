@@ -144,9 +144,9 @@ writematrix([Bc1 ; Ac1], 'High-pass-Chebyshev.csv')
 % IIR - Pass-Band Elliptic
 F_s = 1000;
 
-F_stop1 = 100;
+F_stop1 = 0.2;
 
-F_pass1 = 125;
+F_pass1 = 0.8;
 F_pass2 = 180;
 
 F_stop2 = 200;
