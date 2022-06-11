@@ -14,92 +14,128 @@
 #include <numeric>
 #include <fstream>
 #include <string>
+#include <array>
+#include <random>
 
 #include "types.hpp"
-#include "queue.hpp"
+#include "ring.hpp"
 
-#include "fdacoefs.h"
-//#include "fdacoefs_ss.h"
-
-namespace envi {
+namespace env {
 auto clear = "\033[H\033[2J";
 auto hide  = "\033[?25l";
 auto show  = "\033[?25h";
 auto reset = "\u001b[0m";
 
-using queue_t = nerv::queue<nerv::f64, 3>;
+nrv::f64 a[] = {
+1,
+-7.90119304391351,
+27.3283305191703,
+-54.0435847058801,
+66.8348417968334,
+-52.9283688827664,
+26.2119992817102,
+-7.42196737603675,
+0.919942410944543
+};
+nrv::f64 b[] = {
+2.16929926190395e-13,
+1.73543940952316e-12,
+6.07403793333105e-12,
+1.21480758666621e-11,
+1.51850948333276e-11,
+1.21480758666621e-11,
+6.07403793333105e-12,
+1.73543940952316e-12,
+2.16929926190395e-13
+};
 
-auto ecg(nerv::f64 x) -> nerv::f64 {
+template <typename T, std::size_t N>
+constexpr auto length_of(T (&)[N]) -> std::size_t {
+    return N;
+}
+
+using ring_t = nrv::ring<nrv::f64, length_of(b)>;
+
+auto ecg(nrv::f64 x) -> nrv::f64 {
     auto f = 1.5;
     return std::sin(2.0 * M_PI * f * 4.0 * x) *
            std::pow(0.5 * (std::sin(2.0 * M_PI * f * x) + 1.0), 5.0);
 }
 
-auto test(nerv::f64 x) -> nerv::f64 {
+auto test(nrv::f64 x) -> nrv::f64 {
     return std::sin(2.0 * M_PI * 125.0 * x);
 }
 
-auto iir(queue_t& w, nerv::f64 x) -> nerv::f64 {
-    nerv::f64 output = x;
-    for (nerv::usize i = 0; i < MWSPT_NSEC - 1; i += 2) {
-        auto a = DEN[i + 1];
-        auto b = NUM[i + 1];
-        nerv::f64 feedback = output * NUM[i][0];
-        for (nerv::usize j = 1; j < w.capacity(); j++) {
-            feedback += -a[j] * w.at_back(j);
-        }
-        w.enq(feedback);
-        nerv::f64 forward  = 0.0;
-        for (nerv::usize j = 0; j < w.capacity(); j++) {
-            forward += b[j] * w.at_front(j);
-        }
-        output = forward;
+nrv::f64 x[length_of(b)];
+nrv::f64 y[length_of(a)];
+
+auto iir(nrv::f64 const& value) -> nrv::f64 {
+    static std::size_t n = 0;
+    x[n] = value;
+    auto forward = 0.0;
+    for (std::size_t i = 0; i < length_of(b); i ++) {
+        auto index = (n + length_of(b) - i) % length_of(b);  // [n - k]
+        forward += b[i] * x[index];
     }
-    return output * NUM[MWSPT_NSEC - 1][0];
-}
+
+    auto feedback = 0.0;
+    for (std::size_t i = 1; i < length_of(a); i ++) {
+        auto index = (n + length_of(b) - i) % length_of(b);  // [n - k]
+        feedback += -a[i] * y[index];
+    }
+    auto sum = forward + feedback;
+    y[n] = sum;
+    n = (n + 1) % length_of(b);
+    return sum;
 }
 
-auto main([[maybe_unused]]nerv::i32 argc, [[maybe_unused]]char const* argv[]) -> nerv::i32 {
-    constexpr auto fs = 10'000.;
+}  // namespace env
+
+auto main([[maybe_unused]]nrv::i32 argc, [[maybe_unused]]char const* argv[]) -> nrv::i32 {
+    constexpr auto fs = 10'000.0;
     constexpr auto Ts = 1.0 / fs;
-    constexpr nerv::usize sample_count = 500;
+    constexpr nrv::usize sample_count = 2048;
 
-    std::vector<nerv::f64> n{};
+    std::vector<nrv::f64> n{};
     std::generate_n(std::back_inserter(n), sample_count, [i = 0.0]() mutable { return i++;});
 
-    std::vector<nerv::f64> samples{};
-    std::vector<nerv::f64> samples_noise{};
+    //std::random_device rdev{};
+    //std::mt19937 rng{rdev()};
+    std::mt19937 rng{0};
+    std::uniform_real_distribution<nrv::f64> dist(-1.0, 1.0);
+
+    std::vector<nrv::f64> samples{};
+    std::vector<nrv::f64> samples_noise{};
     std::transform(std::begin(n), std::end(n), std::back_inserter(samples),
                    [&](auto const& n) {
-        //return envi::ecg(Ts * n) + 0.1 * std::sin(2.0 * M_PI * 50.0 * Ts * n) +
-        //       0.1 * std::cos(2.0 * M_PI * 0.2 * Ts * n);
-        //return envi::test(Ts * n) +
-        //   0.2 * std::sin(2.0 * M_PI * 1000.0 * Ts * n) +
-        //   0.15 * std::sin(2.0 * M_PI * 50.0 * Ts * n);
-        return std::sin(2.0 * M_PI * Ts * n * 650.0);
+        return env::test(Ts * n);
     });
-    std::transform(std::begin(samples), std::end(samples),
-                   std::back_inserter(samples_noise), [&, n = 0](auto const& s) mutable {
-        return s + std::sin(2.0 * M_PI * Ts * (n++) * 45.0) * 0.5;
+    auto noise = [](nrv::f64 n) {
+        return 0.4 * std::sin(2.0 * M_PI * 500.0 * n * Ts)
+             + 0.1 * std::cos(2.0 * M_PI * 444.0 * n * Ts + M_PI / 5.0);
+    };
+    std::transform(std::begin(n), std::end(n),
+                   std::back_inserter(samples_noise), [&](auto const& n) mutable {
+        return env::test(Ts * n) + noise(n);
+        //return env::test(Ts * n) + 0.1 * std::sin(2.0 * M_PI * 50.0 * Ts * n) + 0.1 * std::cos(2.0 * M_PI * 1000.0 * Ts * n);
+        //return env::ecg(Ts * n) + 0.1 * std::sin(2.0 * M_PI * 50.0 * Ts * n) +
+        //       0.1 * std::cos(2.0 * M_PI * 0.2 * Ts * n);
     });
 
     // Direct Form II IIR System Second Order Sections
 
-    std::vector<nerv::f64> output(sample_count);
-    nerv::queue<nerv::f64, 3> w{};
+    std::vector<nrv::f64> output(sample_count);
+    //env::ring_t w{};
 
-    // Simulate signal being read
-    //auto read_value = samples_noise[1];
-    //output[0] = envi::iir(w, read_value);
-    for (nerv::usize i = 0; i < sample_count; i++) {
+    for (nrv::usize i = 0; i < sample_count; i++) {
         auto read_value = samples_noise[i];
-        output[i] = envi::iir(w, read_value);
-        //std::cout << output[i] << "\n";
+        output[i] = env::iir(read_value);
+        std::cout << output[i] << "\n";
     }
 
     std::ofstream plot_data{"plot_data.csv"};
     plot_data << "samples" << "," << "original" << "," << "w/ noise" << "," << "filtered" << "\n";
-    for (nerv::usize i = 0; i < n.size(); i++) {
+    for (nrv::usize i = 1024; i < sample_count; i++) {
         plot_data << n[i]       << ",";
         plot_data << samples[i] << ",";
         plot_data << samples_noise[i] << ",";

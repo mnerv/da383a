@@ -1,10 +1,9 @@
 #!/usr/bin/env sh
 
-source ./build.sh
+in=$1
+out="${in%.*}"
+out=${out##*/}
 
-target=$1
-target="${target%.*}"
-args="${@:2}"
-
-./bin/$target $args
+./build.sh $in
+./bin/$out "${@:2}"
 
