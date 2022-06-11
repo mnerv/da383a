@@ -47,11 +47,12 @@ constexpr auto SCREEN_ADDRESS = 0x3C;
 constexpr auto SCREEN_WIDTH   = 128;
 constexpr auto SCREEN_HEIGHT  = 32;
 
+// Data buffer for drawing and BPM calculation
+nrv::ring<nrv::f32, 2048> data_buffer{};
 // max and min threshold for pulse data trigger
-constexpr nrv::u16 MAX_THRESHOLD = 3'000;
-constexpr nrv::u16 MIN_THRESHOLD = 2'200;
-
-nrv::ring<nrv::f32, 2048> draw_buffer{};
+// value in percentage
+constexpr nrv::f32 min_threshold = 0.75f;
+constexpr nrv::f32 max_threshold = 0.90f;
 
 // timer callback data
 nrv::i32 on_time_count = 0;
@@ -65,10 +66,11 @@ nrv::f32 bpm_period   = 0.0f;
 Adafruit_SSD1306 screen(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
 
 // time keeping
-nrv::i64 current_time = 0;
-nrv::i64 last_beat    = 0;
-nrv::i64 last_update  = 0;
-nrv::i64 last_draw    = 0;
+nrv::i64 current_time    = 0;
+nrv::i64 last_beat       = 0;
+nrv::i64 last_update     = 0;
+nrv::i64 last_draw       = 0;
+nrv::i64 last_beat_check = 0;
 
 namespace nrv {
 template <typename T, std::size_t N>
@@ -181,50 +183,56 @@ auto loop() -> void {
     portEXIT_CRITICAL(&timer_mux);
 
     auto const read_value = analogRead(PULSE_PIN);
-
     // Apply High- and Low-pass filter to achieve bandpass
     nrv::f32 value = nrv::iir_high_pass(nrv::f32(read_value));
     value = nrv::iir_low_pass(value);
+    auto prev_value = *std::rbegin(data_buffer);
+    // add read value to data_buffer ring
+    data_buffer.enq(value);
 
-    if (*std::rbegin(draw_buffer) < MIN_THRESHOLD && read_value > MIN_THRESHOLD) {
+    // min and max value for scaling to fit screen and BPM calculation
+    nrv::i32 min_value = INT32_MAX, max_value = INT32_MIN;
+    for (std::size_t i = 0; i < data_buffer.capacity(); i++) {
+        auto value = nrv::i32(data_buffer.at_back(i));
+        if (value > max_value) max_value = value;
+        if (value < min_value) min_value = value;
+    }
+
+    // Prepare for calculating BPM
+    auto const value_range     = nrv::f32(max_value);
+    auto const norm_value      = (value     ) / value_range;
+    auto const norm_prev_value = (prev_value) / value_range;
+
+    if (norm_prev_value < min_threshold && norm_value > min_threshold && current_time - last_beat_check > 20'000) {
         bpm_period = float(current_time - last_beat) / static_cast<float>(ONE_SECOND_US);
         last_beat  = current_time;
+        last_beat_check = current_time;
         digitalWrite(LED_PIN, 1);
     } else {
         digitalWrite(LED_PIN, 0);
     }
 
-    // add read value to draw_buffer ring
-    draw_buffer.enq(value);
-
     auto update_delta = current_time - last_update;
     last_update = current_time;
+
     // render data to OLED
     if (current_time - last_draw < DRAW_PERIOD) return;
     screen.clearDisplay();
 
-    nrv::i32 min = INT32_MAX, max = INT32_MIN;
-
-    for (std::size_t i = 0; i < draw_buffer.capacity(); i++) {
-        auto value = draw_buffer.at_back(i);
-        if (value > max) max = value;
-        if (value < min) min = value;
-    }
-
-    auto it = std::rbegin(draw_buffer);
+    // Draw the signal scaled to fit
+    auto it = std::rbegin(data_buffer);
     for (auto i = 0; i < SCREEN_WIDTH; i++) {
-        if (it == std::rend(draw_buffer) || min == max) break;
-        auto const y = nrv::map<nrv::i32>(nrv::i32(*it), min, max, 0, SCREEN_HEIGHT);
+        if (it == std::rend(data_buffer) || min_value == max_value) break;
+        auto const y = nrv::map<nrv::i32>(nrv::i32(*it), min_value, max_value, 0, SCREEN_HEIGHT);
         screen.drawPixel(SCREEN_WIDTH - i, y, SSD1306_WHITE);
-        it -= draw_buffer.capacity() / SCREEN_WIDTH;
+        it -= data_buffer.capacity() / SCREEN_WIDTH;
     }
 
-    // print BPM to OLED
+    // Print BPM to OLED
     screen.setCursor(0, 0);
     screen.setTextSize(1);
     screen.setTextColor(SSD1306_WHITE);
-    //screen.printf("BPM:%.0f", static_cast<float>(ONE_MINUTE_S) / bpm_period);
-    screen.printf("MAX:%d", max);
+    screen.printf("BPM:%.0f", static_cast<float>(ONE_MINUTE_S) / bpm_period);
 
     screen.display();
     Serial.printf("frame time: %lld ms, update: %lld ms\n", (current_time - last_draw) / 1000, update_delta / 1000);
