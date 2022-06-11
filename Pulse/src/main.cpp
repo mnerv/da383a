@@ -52,7 +52,7 @@ nrv::ring<nrv::f32, 2048> data_buffer{};
 // max and min threshold for pulse data trigger
 // value in percentage
 constexpr nrv::f32 min_threshold = 0.75f;
-constexpr nrv::f32 max_threshold = 0.90f;
+constexpr nrv::f32 max_threshold = 0.85f;
 
 // timer callback data
 nrv::i32 on_time_count = 0;
