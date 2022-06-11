@@ -158,9 +158,9 @@ class ring {
   public:
     auto enq(T const& value) -> void {
         m_buffer[m_head] = value;
-        ring::dec_wrap(m_head, m_max);
+        m_head = ring::dec_wrap(m_head, m_max);
         if (m_head == m_tail)
-            ring::dec_wrap(m_tail, m_max);
+            m_tail = ring::dec_wrap(m_tail, m_max);
         if (m_size < m_max)
             ++m_size;
     }
@@ -171,13 +171,13 @@ class ring {
     auto deq() -> T {
         auto const ret = m_buffer[m_tail];
         if (m_tail != m_head) {
-            ring::dec_wrap(m_tail, m_max);
+            m_tail = ring::dec_wrap(m_tail, m_max);
             --m_size;
         }
         return ret;
     }
 
-    auto capacity() const -> std::size_t { return SIZE; }
+    constexpr auto capacity() const -> std::size_t { return SIZE; }
     auto size() const -> std::size_t { return m_size; }
     auto back() -> T { return m_buffer[m_tail]; }
     auto front() -> T { return m_buffer[(m_head + 1) % m_max]; }
@@ -205,18 +205,16 @@ class ring {
         return (m_tail + m_max - offset) % m_max;
     }
     auto index_back(std::size_t const& offset) const -> std::size_t {
-        auto const index = m_head + 1;
+        auto index = m_size == 0 ? m_head : m_head + 1;
         return (index + m_max + offset) % m_max;
     }
 
   private:
-    static auto inc_wrap(std::size_t& value, std::size_t const& max) -> std::size_t {
-        value = (value + 1) % max;
-        return value;
+    static auto inc_wrap(std::size_t const& value, std::size_t const& max) -> std::size_t {
+        return (value + 1) % max;
     }
-    static auto dec_wrap(std::size_t& value, std::size_t const& max) -> std::size_t {
-        value = (value + max - 1) % max;
-        return value;
+    static auto dec_wrap(std::size_t const& value, std::size_t const& max) -> std::size_t {
+        return (value + max - 1) % max;
     }
 
   private:
