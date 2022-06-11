@@ -14,31 +14,35 @@
 %% ECG
 
 % Frequency in Hz
-%%%F_s = 250;
-%%%F_stop1 = 0.5;
-%%%
-%%%F_pass1 = 0.9;
-%%%F_pass2 = 5.0;
-%%%
-%%%F_stop2 = 6.0;
-%%%
-%%%% Attenuation in dB
-%%%A_pass  =  1;
-%%%A_stop1 = 60;
-%%%A_stop2 = 80;
-%%%
-%%%% Normalise frequency to the half of F_s
-%%%passband = [F_pass1 F_pass2] * 2 * pi / (2 * pi * F_s / 2);
-%%%stopband = [F_stop1 F_stop2] * 2 * pi / (2 * pi * F_s / 2);
-%%%
-%%%passripple = -20 * log10(0.95);
-%%%stopatten  = -80;
-%%%
-%%%[Ne, Wne] = buttord(passband, stopband, passripple, stopatten);
-%%%[z, p, k]  = butter(Ne, Wne);
-%%%[B, A] = butter(Ne, Wne)
-%%%sos = zp2sos(z, p, k);
-%%%freqz(sos, 512, F_s)
+F_s = 1000;
+F_stop1 = 0.2;
+
+F_pass1 = 0.8;
+F_pass2 = 5.0;
+
+F_stop2 = 6.0;
+
+% Attenuation in dB
+A_pass  =  1;
+A_stop1 = 40;
+A_stop2 = 80;
+
+% Normalise frequency to the half of F_s
+passband = [F_pass1 F_pass2] * 2 * pi / (2 * pi * F_s / 2);
+stopband = [F_stop1 F_stop2] * 2 * pi / (2 * pi * F_s / 2);
+
+passripple = -20 * log10(0.95);
+stopatten  = -20 * log10(0.001);
+
+[Ne, Wne] = buttord(passband, stopband, passripple, stopatten);
+[z, p, k]  = butter(Ne, Wne);
+[B, A] = butter(Ne, Wne)
+%sos = zp2sos(z, p, k);
+%freqz(sos, 512, F_s)
+
+%fvtool(B, A)
+
+writematrix([B ; A], 'ecg_filter.csv')
 
 %% Test
 
@@ -99,10 +103,10 @@
 %fvtool(b)
 
 
-% IIR Low-pass Butterworth
-F_s    = 10000;
-F_pass = 140;
-F_stop = 250;
+% IIR Low-pass Chebyshev
+F_s    = 1000;
+F_pass = 5;
+F_stop = 10;
 
 pass_rippl = -20 * log10(0.9);
 stop_atten = -20 * log10(0.001);
@@ -116,6 +120,70 @@ F_stop = (2 * pi * F_stop) / F_max;
 [Nc1, Wnc1] = cheb1ord(F_pass, F_stop, pass_rippl, stop_atten);
 [Bc1, Ac1]  = cheby1(Nc1, pass_rippl, Wnc1)
 
+writematrix([Bc1 ; Ac1], 'Low-pass-Chebyshev.csv')
 
-writematrix([Bc1 ; Ac1], 'Low-pass-Chebyshev-1-140-250-1000.csv')
+% IIR High-pass Chebyshev
+F_s    = 1000;
+F_pass = 0.8;
+F_stop = 0.1;
+
+pass_rippl = -20 * log10(0.9);
+stop_atten = -20 * log10(0.001);
+
+% Normalise frequency
+F_max  = 2 * pi * F_s / 2;
+F_pass = (2 * pi * F_pass) / F_max;
+F_stop = (2 * pi * F_stop) / F_max;
+
+% Chebyshev 1
+[Nc1, Wnc1] = cheb1ord(F_pass, F_stop, pass_rippl, stop_atten);
+[Bc1, Ac1]  = cheby1(Nc1, pass_rippl, Wnc1)
+
+writematrix([Bc1 ; Ac1], 'High-pass-Chebyshev.csv')
+
+% IIR - Pass-Band Elliptic
+F_s = 1000;
+
+F_stop1 = 100;
+
+F_pass1 = 125;
+F_pass2 = 180;
+
+F_stop2 = 200;
+
+F_max = 2 * pi * F_s / 2;
+
+passband = 2 * pi * [F_pass1 F_pass2] / F_max;
+stopband = 2 * pi * [F_stop1 F_stop2] / F_max;
+
+pass_rippl = -20 * log10(0.9);
+stop_atten = -20 * log10(0.001);
+
+[Ne, Wne] = ellipord(passband, stopband, pass_rippl, stop_atten);
+[Be, Ae] = ellip(Ne, pass_rippl, stop_atten, Wne)
+
+writematrix([Be ; Ae], 'passband-elliptic.csv')
+
+% IIR - Pass-Band Butterworth
+F_s = 1000;
+
+F_stop1 = 0.1415;
+
+F_pass1 = 0.8;
+F_pass2 = 5;
+
+F_stop2 = 29;
+
+F_max = 2 * pi * F_s / 2;
+
+passband = 2 * pi * [F_pass1 F_pass2] / F_max;
+stopband = 2 * pi * [F_stop1 F_stop2] / F_max;
+
+pass_rippl = -20 * log10(0.9);
+stop_atten = 80;
+
+[Ne, Wne] = buttord(passband, stopband, pass_rippl, stop_atten);
+[Be, Ae]  = butter(Ne, Wne)
+
+writematrix([Be ; Ae], 'passband-butterworth.csv')
 
