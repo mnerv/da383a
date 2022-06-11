@@ -1,5 +1,5 @@
 /**
- * @file   filter.hpp
+ * @file   ecg_filter.hpp
  * @author Pratchaya Khansomboon (pratchaya.k.git@gmail.com)
  * @brief  Filter coefficient frequency response test
  * @date   2022-03-25
@@ -26,19 +26,11 @@ auto hide  = "\033[?25l";
 auto show  = "\033[?25h";
 auto reset = "\u001b[0m";
 
-nrv::f64 a[] = {
-1,-6.70218347938014,24.2633638293347,-59.0054321458422,106.180528967321,-147.266003327997,161.009487809362,-139.436308280412,95.1865660901505,-50.0780390785878,19.4940629397266,-5.09719247659637,0.720189367854421
-};
-nrv::f64 b[] = {
-0.00148036694850925,-0.00860932170753858,0.0273399672684535,-0.0600063877173575,0.100704056886858,-0.135176869970052,0.148805416797188,-0.135176869970052,0.100704056886859,-0.0600063877173578,0.0273399672684536,-0.00860932170753864,0.00148036694850926
-};
 
 template <typename T, std::size_t N>
 constexpr auto length_of(T (&)[N]) -> std::size_t {
     return N;
 }
-
-using ring_t = nrv::ring<nrv::f64, length_of(b)>;
 
 auto ecg(nrv::f64 x) -> nrv::f64 {
     auto f = 1.5;
@@ -47,13 +39,50 @@ auto ecg(nrv::f64 x) -> nrv::f64 {
 }
 
 auto test(nrv::f64 x) -> nrv::f64 {
-    return std::sin(2.0 * M_PI * 150.0 * x);
+    return std::sin(2.0 * M_PI * 125.0 * x);
 }
 
-static nrv::ring<nrv::f64, length_of(b)> x_r{};
-static nrv::ring<nrv::f64, length_of(a)> y_r{};
+auto iir_high_pass(nrv::f64 const& value) {
+    static nrv::f64 b[] = {
+         0.9936059630099,    -4.96802981505,    9.936059630099,   -9.936059630099,
+           4.96802981505,  -0.9936059630099
+    };
+    static nrv::f64 a[] = {
+                       1,   -4.987170880032,     9.94876577478,   -9.923271718397,
+          4.948929633379,  -0.9872528097289
+    };
+    static nrv::ring<nrv::f64, length_of(b)> x_r{};
+    static nrv::ring<nrv::f64, length_of(a)> y_r{};
 
-auto iir(nrv::f64 const& value) -> nrv::f64 {
+    x_r.enq(value);
+
+    auto forward = 0.0;
+    for (std::size_t i = 0; i < x_r.capacity(); i++) {
+        forward += b[i] * x_r[i];
+    }
+
+    auto feedback = 0.0;
+    for (std::size_t i = 1; i < y_r.capacity(); i++) {
+        feedback += -a[i] * y_r[i - 1];
+    }
+    y_r.enq(forward + feedback);
+    return *y_r.rbegin();
+}
+
+auto iir_low_pass(nrv::f64 const& value) {
+    static nrv::f64 b[] = {
+        5.46941156343e-13,4.375529250744e-12, 1.53143523776e-11,3.062870475521e-11,
+        3.828588094401e-11,3.062870475521e-11, 1.53143523776e-11,4.375529250744e-12,
+        5.46941156343e-13
+    };
+    static nrv::f64 a[] = {
+        1,   -7.693650092234,    25.90228369879,   -49.84244501049,
+        59.95604212057,   -46.16762320225,    22.22346400092,   -6.114153359464,
+        0.7360818442945
+    };
+    static nrv::ring<nrv::f64, length_of(b)> x_r{};
+    static nrv::ring<nrv::f64, length_of(a)> y_r{};
+
     x_r.enq(value);
 
     auto forward = 0.0;
@@ -74,7 +103,7 @@ auto iir(nrv::f64 const& value) -> nrv::f64 {
 auto main([[maybe_unused]]nrv::i32 argc, [[maybe_unused]]char const* argv[]) -> nrv::i32 {
     constexpr auto fs = 1'000.0;
     constexpr auto Ts = 1.0 / fs;
-    constexpr nrv::usize sample_count = 2048;
+    constexpr nrv::usize sample_count = 4096;
 
     std::vector<nrv::f64> n{};
     std::generate_n(std::back_inserter(n), sample_count, [i = 0.0]() mutable { return i++;});
@@ -83,20 +112,31 @@ auto main([[maybe_unused]]nrv::i32 argc, [[maybe_unused]]char const* argv[]) -> 
     //std::mt19937 rng{rdev()};
     std::mt19937 rng{0};
     std::uniform_real_distribution<nrv::f64> dist(-1.0, 1.0);
+    std::uniform_real_distribution<nrv::f64> dist_norm(0.0, 0.5);
 
     std::vector<nrv::f64> samples{};
     std::vector<nrv::f64> samples_noise{};
     std::transform(std::begin(n), std::end(n), std::back_inserter(samples),
                    [&](auto const& n) {
-        return env::test(Ts * n);
+        //return env::test(Ts * n);
+        //return env::ecg(Ts * n);
+        return std::sin(2.0 * 2.0 * M_PI * Ts * n);
     });
-    auto noise = [](nrv::f64 n) {
-        return 0.4 * std::sin(2.0 * M_PI * 500.0 * n * Ts)
-             + 0.1 * std::cos(2.0 * M_PI * 444.0 * n * Ts + M_PI / 5.0);
+    //auto noise = [](nrv::f64 n) {
+    //    return 0.4 * std::sin(2.0 * M_PI * 500.0 * n * Ts)
+    //         + 0.1 * std::cos(2.0 * M_PI * 444.0 * n * Ts + M_PI / 5.0);
+    //};
+    auto ecg_noise = [&](nrv::f64 n) {
+        return 0.1 * std::sin(2.0 * M_PI * 55.0 * Ts * n) +
+               0.5 * std::cos(2.0 * M_PI * 0.1 * Ts * n);
+               //+ 0.2 * dist(rng) + dist_norm(rng) * dist(rng);
     };
     std::transform(std::begin(n), std::end(n),
                    std::back_inserter(samples_noise), [&](auto const& n) mutable {
-        return env::test(Ts * n) + noise(n);
+        //return env::test(Ts * n) + noise(n);
+        //return env::test(Ts * n) + 0.1 * std::sin(2.0 * M_PI * 50.0 * Ts * n) + 0.1 * std::cos(2.0 * M_PI * 1000.0 * Ts * n);
+        //return env::ecg(Ts * n) + ecg_noise(n);
+        return std::sin(2.0 * 2.0 * M_PI * Ts * n) + ecg_noise(n);
     });
 
     // Direct Form II IIR System Second Order Sections
@@ -106,13 +146,15 @@ auto main([[maybe_unused]]nrv::i32 argc, [[maybe_unused]]char const* argv[]) -> 
 
     for (nrv::usize i = 0; i < sample_count; i++) {
         auto read_value = samples_noise[i];
-        output[i] = env::iir(read_value);
+        output[i] = env::iir_high_pass(read_value);
+        output[i] = env::iir_low_pass(output[i]);
         //std::cout << output[i] << "\n";
+        //output[i] = read_value;
     }
 
     std::ofstream plot_data{"plot_data.csv"};
     plot_data << "samples" << "," << "original" << "," << "w/ noise" << "," << "filtered" << "\n";
-    for (nrv::usize i = 1024; i < sample_count; i++) {
+    for (nrv::usize i = 0; i < sample_count; i++) {
         plot_data << n[i]       << ",";
         plot_data << samples[i] << ",";
         plot_data << samples_noise[i] << ",";
