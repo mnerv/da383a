@@ -51,8 +51,7 @@ constexpr auto SCREEN_HEIGHT  = 32;
 constexpr nrv::u16 MAX_THRESHOLD = 3'000;
 constexpr nrv::u16 MIN_THRESHOLD = 2'200;
 
-constexpr nrv::usize BUFFER_SIZE   = 1024;
-nrv::ring<nrv::u16, BUFFER_SIZE> buffer{};
+nrv::ring<nrv::f32, 2048> draw_buffer{};
 
 // timer callback data
 nrv::i32 on_time_count = 0;
@@ -70,6 +69,81 @@ nrv::i64 current_time = 0;
 nrv::i64 last_beat    = 0;
 nrv::i64 last_update  = 0;
 nrv::i64 last_draw    = 0;
+
+namespace nrv {
+template <typename T, std::size_t N>
+constexpr auto length_of(T (&)[N]) -> std::size_t {
+    return N;
+}
+
+auto iir_high_pass(nrv::f64 const& value) -> nrv::f32 {
+    // [Hz] Butterworth
+    // Fs    = 1000
+    // Fstop = 0.1
+    // Fpass = 0.8
+    // [dB]
+    // Astop = 80
+    // Apass = 1
+    static nrv::f64 b[] = {
+         0.9936059630099,    -4.96802981505,    9.936059630099,   -9.936059630099,
+           4.96802981505,  -0.9936059630099
+    };
+    static nrv::f64 a[] = {
+                       1,   -4.987170880032,     9.94876577478,   -9.923271718397,
+          4.948929633379,  -0.9872528097289
+    };
+    static nrv::ring<nrv::f64, length_of(b)> x{};
+    static nrv::ring<nrv::f64, length_of(a)> y{};
+
+    x.enq(value);
+
+    auto forward = 0.0;
+    for (std::size_t i = 0; i < x.capacity(); i++) {
+        forward += b[i] * x[i];
+    }
+
+    auto feedback = 0.0;
+    for (std::size_t i = 1; i < y.capacity(); i++) {
+        feedback += -a[i] * y[i - 1];
+    }
+    y.enq(forward + feedback);
+    return *y.rbegin();
+}
+
+auto iir_low_pass(nrv::f64 const& value) -> nrv::f32 {
+    // [Hz] Butterworth
+    // Fs    = 1000
+    // Fpass = 5
+    // Fstop = 30
+    // [dB]
+    // Astop = 80
+    // Apass = 1
+    static nrv::f64 b[] = {
+        6.594578622361e-11,3.956747173417e-10,9.891867933541e-10,1.318915724472e-09,
+        9.891867933541e-10,3.956747173417e-10,6.594578622361e-11
+    };
+    static nrv::f64 a[] = {
+                     1,   -5.842652126594,    14.22559205773,   -18.47523699553,
+        13.49869991173,   -5.260796021795,   0.8543931786795
+    };
+    static nrv::ring<nrv::f64, length_of(b)> x{};
+    static nrv::ring<nrv::f64, length_of(a)> y{};
+
+    x.enq(value);
+
+    auto forward = 0.0;
+    for (std::size_t i = 0; i < x.capacity(); i++) {
+        forward += b[i] * x[i];
+    }
+
+    auto feedback = 0.0;
+    for (std::size_t i = 1; i < y.capacity(); i++) {
+        feedback += -a[i] * y[i - 1];
+    }
+    y.enq(forward + feedback);
+    return *y.rbegin();
+}
+}
 
 auto IRAM_ATTR on_time() -> void {
     portENTER_CRITICAL_ISR(&timer_mux);
@@ -107,7 +181,12 @@ auto loop() -> void {
     portEXIT_CRITICAL(&timer_mux);
 
     auto const read_value = analogRead(PULSE_PIN);
-    if (*std::rbegin(buffer) < MIN_THRESHOLD && read_value > MIN_THRESHOLD) {
+
+    // Apply High- and Low-pass filter to achieve bandpass
+    nrv::f32 value = nrv::iir_high_pass(nrv::f32(read_value));
+    value = nrv::iir_low_pass(value);
+
+    if (*std::rbegin(draw_buffer) < MIN_THRESHOLD && read_value > MIN_THRESHOLD) {
         bpm_period = float(current_time - last_beat) / static_cast<float>(ONE_SECOND_US);
         last_beat  = current_time;
         digitalWrite(LED_PIN, 1);
@@ -115,8 +194,8 @@ auto loop() -> void {
         digitalWrite(LED_PIN, 0);
     }
 
-    // add read value to buffer ring
-    buffer.enq(read_value);
+    // add read value to draw_buffer ring
+    draw_buffer.enq(value);
 
     auto update_delta = current_time - last_update;
     last_update = current_time;
@@ -124,22 +203,28 @@ auto loop() -> void {
     if (current_time - last_draw < DRAW_PERIOD) return;
     screen.clearDisplay();
 
-    nrv::i32 min = *std::min_element(std::rbegin(buffer), std::rend(buffer));
-    nrv::i32 max = *std::max_element(std::rbegin(buffer), std::rend(buffer));
+    nrv::i32 min = INT32_MAX, max = INT32_MIN;
 
-    auto it = std::rbegin(buffer);
+    for (std::size_t i = 0; i < draw_buffer.capacity(); i++) {
+        auto value = draw_buffer.at_back(i);
+        if (value > max) max = value;
+        if (value < min) min = value;
+    }
+
+    auto it = std::rbegin(draw_buffer);
     for (auto i = 0; i < SCREEN_WIDTH; i++) {
-        if (it == std::rend(buffer)) break;
-        auto const y = nrv::map<nrv::i32>(*it, min, max, 0, SCREEN_HEIGHT);
-        screen.drawPixel(SCREEN_WIDTH - i, SCREEN_HEIGHT - y, SSD1306_WHITE);
-        it -= BUFFER_SIZE / SCREEN_WIDTH;
+        if (it == std::rend(draw_buffer) || min == max) break;
+        auto const y = nrv::map<nrv::i32>(nrv::i32(*it), min, max, 0, SCREEN_HEIGHT);
+        screen.drawPixel(SCREEN_WIDTH - i, y, SSD1306_WHITE);
+        it -= draw_buffer.capacity() / SCREEN_WIDTH;
     }
 
     // print BPM to OLED
     screen.setCursor(0, 0);
     screen.setTextSize(1);
     screen.setTextColor(SSD1306_WHITE);
-    screen.printf("BPM:%.0f", static_cast<float>(ONE_MINUTE_S) / bpm_period);
+    //screen.printf("BPM:%.0f", static_cast<float>(ONE_MINUTE_S) / bpm_period);
+    screen.printf("MAX:%d", max);
 
     screen.display();
     Serial.printf("frame time: %lld ms, update: %lld ms\n", (current_time - last_draw) / 1000, update_delta / 1000);
