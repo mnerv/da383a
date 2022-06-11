@@ -69,38 +69,20 @@ auto test(nrv::f64 x) -> nrv::f64 {
 static nrv::ring<nrv::f64, length_of(b)> x_r{};
 static nrv::ring<nrv::f64, length_of(a)> y_r{};
 
-static nrv::f64 x[length_of(b)]{};
-static nrv::f64 y[length_of(a)]{};
-
 auto iir(nrv::f64 const& value) -> nrv::f64 {
-    static std::size_t n = 0;
     x_r.enq(value);
-    x[n] = value;
 
     auto forward = 0.0;
     for (std::size_t i = 0; i < x_r.capacity(); i++) {
-        auto index = (n + length_of(b) - i) % length_of(b);  // [n - k]
-        forward += b[i] * x_r[index];
-        std::cout << x[index] << ":::" << x_r[i] << "\n";
-        assert(x[index] == x_r[i]);
+        forward += b[i] * x_r[i];
     }
-    std::cout << "----------------------\n";
 
     auto feedback = 0.0;
     for (std::size_t i = 1; i < y_r.capacity(); i++) {
-        auto index = (n - i + length_of(a)) % length_of(a);
         feedback += -a[i] * y_r[i - 1];
-        std::cout << y[index] << ":::" << y_r[i - 1] << "\n";
-        assert(y[index] == y_r[i - 1]);
     }
-    auto sum = forward + feedback;
-    std::cout << "sum: " << sum << "\n";
-    y[n] = sum;
-    y_r.enq(sum);
-    n = (n + 1) % length_of(b);
-
-    std::cout << "======================\n";
-    return sum;
+    y_r.enq(forward + feedback);
+    return *y_r.rbegin();
 }
 
 }  // namespace env
