@@ -18,7 +18,7 @@
 #include "driver/timer.h"
 
 #include "types.hpp"
-#include "queue.hpp"
+#include "ring.hpp"
 #include "utils.hpp"
 
 // Hide editor error when on macOS, the clang lsp server
@@ -48,28 +48,28 @@ constexpr auto SCREEN_WIDTH   = 128;
 constexpr auto SCREEN_HEIGHT  = 32;
 
 // max and min threshold for pulse data trigger
-constexpr nerv::u16 MAX_THRESHOLD = 3'000;
-constexpr nerv::u16 MIN_THRESHOLD = 2'200;
+constexpr nrv::u16 MAX_THRESHOLD = 3'000;
+constexpr nrv::u16 MIN_THRESHOLD = 2'200;
 
-constexpr nerv::usize BUFFER_SIZE   = 1024;
-nerv::queue<nerv::u16, BUFFER_SIZE> buffer{};
+constexpr nrv::usize BUFFER_SIZE   = 1024;
+nrv::ring<nrv::u16, BUFFER_SIZE> buffer{};
 
 // timer callback data
-nerv::i32 on_time_count = 0;
+nrv::i32 on_time_count = 0;
 hw_timer_t* timer       = nullptr;
 portMUX_TYPE timer_mux  = portMUX_INITIALIZER_UNLOCKED;
 
 // pulse data
-nerv::f32 bpm_period   = 0.0f;
+nrv::f32 bpm_period   = 0.0f;
 
 // OLED interface
 Adafruit_SSD1306 screen(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
 
 // time keeping
-nerv::i64 current_time = 0;
-nerv::i64 last_beat    = 0;
-nerv::i64 last_update  = 0;
-nerv::i64 last_draw    = 0;
+nrv::i64 current_time = 0;
+nrv::i64 last_beat    = 0;
+nrv::i64 last_update  = 0;
+nrv::i64 last_draw    = 0;
 
 auto IRAM_ATTR on_time() -> void {
     portENTER_CRITICAL_ISR(&timer_mux);
@@ -115,7 +115,7 @@ auto loop() -> void {
         digitalWrite(LED_PIN, 0);
     }
 
-    // add read value to buffer queue
+    // add read value to buffer ring
     buffer.enq(read_value);
 
     auto update_delta = current_time - last_update;
@@ -124,13 +124,13 @@ auto loop() -> void {
     if (current_time - last_draw < DRAW_PERIOD) return;
     screen.clearDisplay();
 
-    nerv::i32 min = *std::min_element(std::rbegin(buffer), std::rend(buffer));
-    nerv::i32 max = *std::max_element(std::rbegin(buffer), std::rend(buffer));
+    nrv::i32 min = *std::min_element(std::rbegin(buffer), std::rend(buffer));
+    nrv::i32 max = *std::max_element(std::rbegin(buffer), std::rend(buffer));
 
     auto it = std::rbegin(buffer);
     for (auto i = 0; i < SCREEN_WIDTH; i++) {
         if (it == std::rend(buffer)) break;
-        auto const y = nerv::map<nerv::i32>(*it, min, max, 0, SCREEN_HEIGHT);
+        auto const y = nrv::map<nrv::i32>(*it, min, max, 0, SCREEN_HEIGHT);
         screen.drawPixel(SCREEN_WIDTH - i, SCREEN_HEIGHT - y, SSD1306_WHITE);
         it -= BUFFER_SIZE / SCREEN_WIDTH;
     }

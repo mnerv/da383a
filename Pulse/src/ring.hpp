@@ -1,7 +1,7 @@
 /**
- * @file   queue.hpp
+ * @file   ring.hpp
  * @author Pratchaya Khansomboon (pratchaya.k.git@gmail.com)
- * @brief  Basic fixed size queue implementation with iterator.
+ * @brief  Basic fixed size ring buffer implementation with iterator.
  * @date   2022-03-20
  *
  * @copyright Copyright (c) 2022
@@ -12,10 +12,10 @@
 #include <iterator>
 #include <iostream>
 
-namespace nerv {
-// Fixed size queue buffer, FIFO
+namespace nrv {
+// Fixed size ring buffer, FIFO
 template <typename T, std::size_t SIZE>
-class queue {
+class ring {
   public:
     template <typename pointer_type, typename reference_type>
     struct iterator_base {
@@ -112,6 +112,7 @@ class queue {
             return !(a > b);
         }
 
+        constexpr auto ptr() const -> std::size_t { return m_ptr; };
       private:
         // FIXME: Find a better way to get the distance from the current ptr to the end, O(n)
         auto dist_to_end() const -> difference_type {
@@ -137,9 +138,17 @@ class queue {
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
     auto begin() -> iterator { return iterator(m_buffer, m_tail, m_max, m_head); }
-    auto end()   -> iterator { return iterator(m_buffer, m_head, m_max, m_head); }
-    auto cbegin() const -> const_iterator { return const_iterator(m_buffer, m_tail, m_max, m_head); }
-    auto cend()   const -> const_iterator { return const_iterator(m_buffer, m_head, m_max, m_head); }
+    auto end()   -> iterator {
+        auto const e = m_head == m_tail ? (m_head + 1) % m_max : m_head;
+        return iterator(m_buffer, e, m_max, e);
+    }
+    auto begin() const -> const_iterator { return const_iterator(m_buffer, m_tail, m_max, m_head); }
+    auto end()   const -> const_iterator { 
+        auto const e = m_head == m_tail ? (m_head + 1) % m_max : m_head;
+        return const_iterator(m_buffer, e, m_max, e);
+    }
+    auto cbegin() const -> const_iterator { return begin(); }
+    auto cend()   const -> const_iterator { return end();   }
 
     auto rbegin() -> reverse_iterator { return reverse_iterator(end()); }
     auto rend()   -> reverse_iterator { return reverse_iterator(begin()); }
@@ -149,20 +158,20 @@ class queue {
   public:
     auto enq(T const& value) -> void {
         m_buffer[m_head] = value;
-        queue::dec_wrap(m_head, m_max);
+        ring::dec_wrap(m_head, m_max);
         if (m_head == m_tail)
-            queue::dec_wrap(m_tail, m_max);
+            ring::dec_wrap(m_tail, m_max);
         if (m_size < m_max)
             ++m_size;
     }
     auto enq_keep(T const& value) -> void {
-        if (m_head == m_tail) return;
+        if (m_size == m_max - 1) return;
         enq(value);
     }
     auto deq() -> T {
         auto const ret = m_buffer[m_tail];
         if (m_tail != m_head) {
-            queue::dec_wrap(m_tail, m_max);
+            ring::dec_wrap(m_tail, m_max);
             --m_size;
         }
         return ret;
@@ -175,21 +184,37 @@ class queue {
 
     using ref_type       = T&;
     using const_ref_type = T const&;
-    auto operator[](std::size_t const& offset) -> ref_type { return at_front(offset); }
-    auto operator[](std::size_t const& offset) const -> const_ref_type { return at_front(offset); }
+    auto operator[](std::size_t const& offset) -> ref_type { return at_back(offset); }
+    auto operator[](std::size_t const& offset) const -> const_ref_type { return at_back(offset); }
 
-    auto at_front(std::size_t const& offset) -> ref_type { return m_buffer[(m_tail + m_max - offset) % m_max]; }
-    auto at_front(std::size_t const& offset) const -> const_ref_type { return m_buffer[(m_tail + m_max - offset) % m_max]; }
+    auto at_front(std::size_t const& offset) -> ref_type {
+        return m_buffer[index_front(offset)];
+    }
+    auto at_front(std::size_t const& offset) const -> const_ref_type {
+        return m_buffer[index_front(offset)];
+    }
 
-    auto at_back(std::size_t const& offset) -> ref_type { return m_buffer[(m_head + m_max + offset) % m_max]; }
-    auto at_back(std::size_t const& offset) const -> const_ref_type { return m_buffer[(m_head + m_max + offset) % m_max]; }
+    auto at_back(std::size_t const& offset) -> ref_type {
+        return m_buffer[index_back(offset)];
+    }
+    auto at_back(std::size_t const& offset) const -> const_ref_type {
+        return m_buffer[index_back(offset)];
+    }
+
+    auto index_front(std::size_t const& offset) const -> std::size_t {
+        return (m_tail + m_max - offset) % m_max;
+    }
+    auto index_back(std::size_t const& offset) const -> std::size_t {
+        auto const index = m_head + 1;
+        return (index + m_max + offset) % m_max;
+    }
 
   private:
-    static auto inc_wrap(std::size_t& value, std::size_t const& max) -> std::size_t const& {
+    static auto inc_wrap(std::size_t& value, std::size_t const& max) -> std::size_t {
         value = (value + 1) % max;
         return value;
     }
-    static auto dec_wrap(std::size_t& value, std::size_t const& max) -> std::size_t const& {
+    static auto dec_wrap(std::size_t& value, std::size_t const& max) -> std::size_t {
         value = (value + max - 1) % max;
         return value;
     }
@@ -198,8 +223,8 @@ class queue {
     T           m_buffer[SIZE + 1];  // allocate extra space for end iterator
     std::size_t m_max   = SIZE + 1;
     std::size_t m_head  = 0;
-    std::size_t m_tail  = SIZE;
+    std::size_t m_tail  = 0;
     std::size_t m_size  = 0;
 };
-}
+}  // namespace nrv
 

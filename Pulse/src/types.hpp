@@ -11,7 +11,7 @@
 #include <cstdint>
 #include <cstddef>
 
-namespace nerv {
+namespace nrv {
 using f32 = float;          // float 32-bit
 using f64 = double;         // float 64-bit
 
