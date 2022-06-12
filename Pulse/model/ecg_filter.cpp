@@ -115,7 +115,7 @@ auto iir_low_pass(nrv::f64 const& value) {
 auto main([[maybe_unused]]nrv::i32 argc, [[maybe_unused]]char const* argv[]) -> nrv::i32 {
     constexpr auto fs = 1'000.0;
     constexpr auto Ts = 1.0 / fs;
-    constexpr nrv::usize sample_count = 4096;
+    constexpr nrv::usize sample_count = 6000;
 
     std::vector<nrv::f64> n{};
     std::generate_n(std::back_inserter(n), sample_count, [i = 0.0]() mutable { return i++;});

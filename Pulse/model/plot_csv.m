@@ -25,3 +25,7 @@ xlabel('sample [n]')
 ylabel('amplitude')
 legend(header)
 
+%saveas(gcf, './simulate.eps', 'epsc')
+%saveas(gcf, './simulate.png', 'png')
+%saveas(gcf, './simulated.svg', 'svg')
+
