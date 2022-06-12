@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+
+# @file   dft.py
+# @author Pratchaya Khansomboon (pratchaya.k.git@gmail.com)
+# @brief  DFT Python implementation
+# @date   2022-04-01
+#
+# @copyright Copyright (c) 2022
 import sys
 import cmath
 import math
