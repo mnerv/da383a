@@ -52,13 +52,13 @@ def fft_csv(fft: list[complex]) -> str:
     vec_phase_str = list(map(num_to_str, vec_phase))
     assert(len(vec_complex_str) == len(vec_mag_str) == len(vec_phase_str))
 
-    # format csv
-    line_count = len(vec_phase_str)
-
     # add headers
     vec_complex_str.insert(0, "complex")
     vec_mag_str.insert(0, "magnitude")
     vec_phase_str.insert(0, "phase (radian)")
+
+    # format csv
+    line_count = len(vec_phase_str)
 
     # calculate max column width per column value
     max_col_widths: list[int] = [0] * 3

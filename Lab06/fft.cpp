@@ -87,7 +87,7 @@ auto fft_i(fft_vec const& samples) -> fft_vec {
 
     // Reverse the bits, N = 2^n
     // This is call radix-2 algorithm.
-    auto const BIT_SIZE = std::size_t(std::log(f64(N)) / std::log(f64(2)));
+    auto const BIT_SIZE = std::log(N) / std::log(2);
     auto reverse_bit = [&](std::size_t b) {
         std::size_t n = 0;
         for (std::size_t i = 0; i < BIT_SIZE; i++) {
@@ -150,8 +150,27 @@ auto vec_to_json(std::vector<std::string> const& str_vec) -> std::string {
     return str;
 }
 
-auto fft_to_csv_str() -> std::string {
-    return "";
+auto fft_to_csv_str(fft_vec const& fft) -> std::string {
+    auto complex_strs = complex_to_str_vec(fft);
+    std::vector<std::string> mag_strs{};
+    std::vector<std::string> phase_strs{};
+    for (std::size_t i = 0; i < complex_strs.size(); i++) {
+        auto const f = fft[i];
+        auto const mag   = std::sqrt(f.real() * f.real() + f.imag() * f.imag());
+        auto const phase = f.real() != 0.0 ? std::atan(f.imag() / f.real()) : 0.0;
+
+        mag_strs.emplace_back(fmt::format("{:.2f}", mag));
+        phase_strs.emplace_back(fmt::format("{:.2f}", phase));
+    }
+
+    std::string csv{"complex, magnitude, phase (radian)\n"};
+    for (std::size_t i = 0; i < complex_strs.size(); i++) {
+        csv += complex_strs[i] + ", ";
+        csv += mag_strs[i]     + ", ";
+        csv += phase_strs[i]   + "\n";
+    }
+
+    return csv;
 }
 
 auto main([[maybe_unused]]std::int32_t argc, [[maybe_unused]]char const* argv[]) -> std::int32_t {
@@ -161,7 +180,7 @@ auto main([[maybe_unused]]std::int32_t argc, [[maybe_unused]]char const* argv[])
     //fmt::print("{}\n", vec_to_json(complex_to_str_vec(fft_r(samples))));
 
     // FFT iterative
-    fmt::print("{}\n", vec_to_json(complex_to_str_vec(fft_i(samples))));
+    fmt::print("{}\n", fft_to_csv_str(fft_i(samples)));
 
     return 0;
 }
