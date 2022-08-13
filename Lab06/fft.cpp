@@ -75,7 +75,7 @@ auto fft_r(fft_vec const& samples) -> fft_vec {
  * is divided into two arrays. The first one contains all even and the second
  * one all odd indices. If apply again to the subproblems, there are four arrays.
  * This is the FFT algorithm. For sample count of N = 8, the permutation is
- * log_2(N) = 3. The method is constructed for arbitary N = 2^n.
+ * log_2(N) = 3. The method is constructed for arbitrary N = 2^n.
  *
  * The rearrange in the manner that'll solve the problem can be done with
  * 'bit inversion'/'reverse bit'. This means that the index k is written in
