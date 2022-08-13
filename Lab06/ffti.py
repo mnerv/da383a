@@ -10,6 +10,8 @@ import sys
 import cmath
 import math
 
+import fft_format as fft_fmt
+
 def reverse_bit(b: int, bit_size: int) -> int:
     n = 0
     for _ in range(bit_size):
@@ -41,33 +43,14 @@ def ffti(samples: list[float]) -> list:
     return samples
 
 def main(argc: int, args: list[str]) -> int:
-    print('FFT Iterative')
-
     samples = [1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0]
     FFT = ffti(samples)
 
     # Prints out the complex outputs
-    for i in range(len(FFT)):
-        f = FFT[i]
-        real = '{:.2f}'.format(f.real)
-        imag = '{:.2f}'.format(abs(f.imag))
-        pm   = '+' if f.imag > 0 else '-'
-        print(f'{real} {pm} {imag}i', end = '')
-        if i < len(FFT) - 1:
-            print('  ', end = '')
-        else:
-            print()
+    # print(vec_to_json(complex_to_str_vec(FFT)))
 
     # Prints out the magnitude and phase angle
-    for i in range(len(FFT)):
-        f = FFT[i]
-        mag   = math.sqrt(f.real * f.real + f.imag * f.imag)
-        phase = math.atan(f.imag / f.real) if f.real != 0 else 0
-
-        fmag   = '{:.2f}'.format(mag)
-        fphase = '{:.2f}'.format(phase)
-
-        print(f'mag: {fmag}, phase: {fphase}', end = '\n')
+    print(fft_fmt.fft_csv(FFT))
 
     return 0
 

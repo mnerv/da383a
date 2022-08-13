@@ -17,11 +17,17 @@
 #include <fstream>
 #include <complex>
 #include <array>
+#include <string>
+#include <sstream>
 
-using fft_type = std::complex<double>;
+#include "fmt/format.h"
+
+using f64 = double;
+using fft_type = std::complex<f64>;
 using fft_vec  = std::vector<fft_type>;
 
 auto fft_r(fft_vec const& samples) -> fft_vec {
+    using namespace std::complex_literals;
     auto const N = samples.size();
     if (N == 1) return samples;
 
@@ -45,10 +51,7 @@ auto fft_r(fft_vec const& samples) -> fft_vec {
     // Compute the DFT
     fft_vec res(N, 0.0);
     for (std::size_t k = 0; k < m; k++) {
-        auto const c = fft_type{
-            std::cos(-2.0 * M_PI * k / N),
-            std::sin(-2.0 * M_PI * k / N)
-        } * f_o[k];
+        auto const c = std::exp(-2.0i * M_PI * f64(k) / f64(N)) * f_o[k];
 
         res[k]     = f_e[k] + c;
         res[k + m] = f_e[k] - c;
@@ -61,15 +64,33 @@ auto fft_i([[maybe_unused]]fft_vec const& samples) -> fft_vec {
     return {};
 }
 
+auto complex_to_str_vec(fft_vec const& fft) -> std::vector<std::string> {
+    using namespace std::string_literals;
+    std::vector<std::string> str_list{};
+    for (std::size_t i = 0; i < fft.size(); i++) {
+        auto const f = fft[i];
+        auto const pm_str = f.imag() < 0.0 ? "-"s : "+"s;
+        str_list.emplace_back(fmt::format("{:.2f} {} {:.2f}", f.real(), pm_str, std::abs(f.imag())));
+    }
+    return str_list;
+}
+
+auto vec_to_json(std::vector<std::string> const& str_vec) -> std::string {
+    std::string str{};
+    str += "[\n";
+    for (std::size_t i = 0; i < str_vec.size(); i++) {
+        str += "  ";
+        str += str_vec[i];
+        if (i < str_vec.size() - 1) str += ",\n";
+    }
+    str += "\n]";
+    return str;
+}
+
 auto main([[maybe_unused]]std::int32_t argc, [[maybe_unused]]char const* argv[]) -> std::int32_t {
     fft_vec const samples{1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0};
-
-    auto res = fft_r(samples);
-    for (std::size_t i = 0; i < res.size(); i++) {
-        std::cout << res[i].real() << " + " << res[i].imag() << "i";
-        if (i < res.size() - 1) std::cout << ", ";
-        else std::cout << "\n";
-    };
+    auto fft = fft_r(samples);
+    fmt::print("{}\n", vec_to_json(complex_to_str_vec(fft)));
     return 0;
 }
 
