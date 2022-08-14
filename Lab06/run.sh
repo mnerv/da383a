@@ -6,5 +6,5 @@ target=$1
 target="${target%.*}"
 args="${@:2}"
 
-./bin/$target $args
+exec ./bin/$target $args
 
