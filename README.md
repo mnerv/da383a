@@ -31,9 +31,9 @@ Video on [Discrete Fourier Transform - Simple Step by Step](https://youtu.be/mkG
 
 ### Lab06 - FFT Implementations
 
-There are fft recursive and iterative implementation in Python. We later compare the speed of the DFT, FFT recursive and FFT iterative. DFT will be the slowest of them all because it is `O(N^2)` and both recursive and iterative fft are `O(Nlog(N))` which almost approximate the `O(N)` which we are trying to achieve with FFT algorithm.
+There are **FFT** recursive and iterative implementation in Python and C++. We later compare the speed of the **DFT**, **FFT recursive** and **FFT iterative**. **DFT** will be the slowest of them all because the algorithm speed is `O(N^2)` and both **recursive** and **iterative** **FFT** are `O(Nlog(N))` which try to approximate the `O(N)`.
 
-The FFT algorithm is an algorithm that splits the DFT into even and odd parts recursively. This in turns make it so the summation is only done once.
+The FFT algorithm is an algorithm that splits the DFT into even and odd parts recursively. This makes that the multiplication and summation of the problem is done once for each frequency bucket.
 
 Video on [The FFT Algorithm - Simple Step by Step](https://youtu.be/htCj9exbGo0) by Simon Xu. The video explains how the FFT works and there's a C++ recursive implementation.
 
